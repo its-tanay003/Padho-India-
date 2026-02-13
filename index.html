@@ -1,90 +1,36 @@
-
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Padho India - Learn While Playing</title>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Padho India</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@300..700&family=Nunito:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        :root {
-            --primary: #0d9488;
-            --secondary: #f59e0b;
-        }
-        body {
-            font-family: 'Nunito', sans-serif;
-            background-color: #f0f4f8;
-            /* Softer Claymorphic Background */
-            background: 
-                radial-gradient(at 0% 0%, #e0f2fe 0, transparent 50%), 
-                radial-gradient(at 100% 0%, #fef3c7 0, transparent 50%), 
-                radial-gradient(at 50% 50%, #fdf2f8 0, transparent 50%),
-                #f0f4f8;
-            background-attachment: fixed;
-            color: #334155;
-            overflow-x: hidden;
-        }
-        .font-kids {
-            font-family: 'Fredoka', sans-serif;
-        }
-
-        /* Claymorphism Core Styles */
-        .clay-card {
-            background: #ffffff;
-            border-radius: 2.5rem;
-            box-shadow: 12px 12px 24px rgba(0, 0, 0, 0.05), 
-                        inset -8px -8px 12px rgba(0, 0, 0, 0.05), 
-                        inset 8px 8px 12px rgba(255, 255, 255, 0.8);
-            border: 4px solid rgba(255, 255, 255, 0.5);
-            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        }
-
-        .clay-button {
-            border-radius: 1.5rem;
-            box-shadow: 6px 6px 12px rgba(0, 0, 0, 0.1), 
-                        inset -4px -4px 6px rgba(0, 0, 0, 0.1), 
-                        inset 4px 4px 6px rgba(255, 255, 255, 0.7);
-            transition: all 0.2s ease;
-            border: 2px solid rgba(255, 255, 255, 0.3);
-        }
-        .clay-button:active {
-            transform: scale(0.95);
-            box-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1), 
-                        inset -2px -2px 3px rgba(0, 0, 0, 0.1), 
-                        inset 2px 2px 3px rgba(255, 255, 255, 0.7);
-        }
-
-        .clay-card-indigo { background: #6366f1; color: white; border-color: rgba(255,255,255,0.2); }
-        .clay-card-teal { background: #14b8a6; color: white; border-color: rgba(255,255,255,0.2); }
-        .clay-card-orange { background: #f59e0b; color: white; border-color: rgba(255,255,255,0.2); }
-
-        @keyframes bounce-subtle {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-8px); }
-        }
-        .animate-bounce-subtle {
-            animation: bounce-subtle 2s ease-in-out infinite;
-        }
-
-        ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+      body { font-family: 'Inter', sans-serif; background-color: #f0f9ff; }
+      /* Custom scrollbar for webkit */
+      ::-webkit-scrollbar { width: 6px; }
+      ::-webkit-scrollbar-track { background: #f1f1f1; }
+      ::-webkit-scrollbar-thumb { background: #3b82f6; border-radius: 3px; }
     </style>
-<script type="importmap">
+  <script type="importmap">
 {
   "imports": {
-    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
-    "@google/genai": "https://esm.sh/@google/genai@^1.41.0",
-    "react/": "https://esm.sh/react@^19.2.4/",
     "react": "https://esm.sh/react@^19.2.4",
-    "react-router-dom": "https://esm.sh/react-router-dom@^7.13.0"
+    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
+    "react/": "https://esm.sh/react@^19.2.4/",
+    "@google/genai": "https://esm.sh/@google/genai@^1.41.0",
+    "lucide-react": "https://esm.sh/lucide-react@^0.564.0",
+    "react-router-dom": "https://esm.sh/react-router-dom@^7.13.0",
+    "dexie": "https://esm.sh/dexie@^4.3.0",
+    "dexie-react-hooks": "https://esm.sh/dexie-react-hooks@^4.2.0",
+    "@react-oauth/google": "https://esm.sh/@react-oauth/google@^0.12.1",
+    "jwt-decode": "https://esm.sh/jwt-decode@^4.0.0"
   }
 }
 </script>
-<link rel="stylesheet" href="/index.css">
 </head>
-<body>
+  <body>
     <div id="root"></div>
-<script type="module" src="/index.tsx"></script>
-</body>
+  </body>
 </html>
