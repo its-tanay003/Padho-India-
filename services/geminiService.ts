@@ -62,10 +62,16 @@ export const getChatResponse = async (
       config.tools = [{ googleSearch: {} }];
     }
 
+    // Manage History: Keep only the last 10 turns (user/model pairs) to save tokens/latency
+    const MAX_HISTORY_LENGTH = 20; 
+    const limitedHistory = history.length > MAX_HISTORY_LENGTH 
+        ? history.slice(history.length - MAX_HISTORY_LENGTH) 
+        : history;
+
     const chat = ai.chats.create({
       model: model,
       config,
-      history: history as any,
+      history: limitedHistory as any,
     });
 
     const result = await chat.sendMessage({ message });

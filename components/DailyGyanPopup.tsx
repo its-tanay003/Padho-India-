@@ -33,6 +33,9 @@ const DailyGyanPopup: React.FC = () => {
   useEffect(() => {
     if (!user || !userId) return;
 
+    // Check Global Setting
+    if (user.showDailyGyan === false) return;
+
     const sessionKey = `gyan_shown_session_${userId}`;
     const hasShownInSession = sessionStorage.getItem(sessionKey);
     
@@ -62,7 +65,7 @@ const DailyGyanPopup: React.FC = () => {
 
       return () => clearTimeout(timer);
     }
-  }, [user, userId, language]); // Re-triggering not needed on lang change for *opening*, but components update
+  }, [user, userId, language]); 
 
   const getVoiceForLanguage = () => {
     // If language is Hindi (hi) or Hinglish (hg), prefer Hindi voices
@@ -104,8 +107,6 @@ const DailyGyanPopup: React.FC = () => {
 
   const handleSpeakFact = (currentFact: Fact, userName: string) => {
      setInteractionStep('READING');
-     // We only translate the intro, not the fact itself (as it comes from DB/Hardcode in English)
-     // In a full app, facts would have multilingual fields.
      const intro = language === 'hi' ? `नमस्ते ${userName}, क्या आप जानते हैं...` :
                    language === 'hg' ? `Hey ${userName}, Kya aapko pata hai...` :
                    `Hey ${userName}, Did you know that...`;

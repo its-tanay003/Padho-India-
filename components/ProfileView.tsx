@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db';
 import { getSessionId } from '../services/authService';
-import { User, LogOut, Award, Flame, Phone, Edit2, Check, X } from 'lucide-react';
+import { User, LogOut, Award, Flame, Phone, Edit2, Check, X, Settings } from 'lucide-react';
+import SettingsMenu from './SettingsMenu';
 
 interface Props {
   onLogout: () => void;
@@ -12,6 +13,7 @@ const ProfileView: React.FC<Props> = ({ onLogout }) => {
   const userId = getSessionId();
   const user = useLiveQuery(() => userId ? db.users.get(userId) : undefined, [userId]);
   
+  const [showSettings, setShowSettings] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState('');
   const [editGrade, setEditGrade] = useState('');
@@ -22,10 +24,6 @@ const ProfileView: React.FC<Props> = ({ onLogout }) => {
       setEditGrade(user.grade || '10');
     }
   }, [user]);
-
-  const handleLogoutClick = () => {
-    onLogout();
-  };
 
   const handleSave = async () => {
     if (userId && editName.trim()) {
@@ -44,16 +42,31 @@ const ProfileView: React.FC<Props> = ({ onLogout }) => {
 
   if (!user) return <div className="p-4">Loading Profile...</div>;
 
+  if (showSettings) {
+    return <SettingsMenu onBack={() => setShowSettings(false)} onLogout={onLogout} />;
+  }
+
   return (
     <div className="p-4 space-y-6">
       {/* Profile Header */}
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center relative">
         
-        {/* Edit Button */}
+        {/* Settings Icon */}
+        {!isEditing && (
+            <button 
+                onClick={() => setShowSettings(true)} 
+                className="absolute top-4 right-4 p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors"
+                aria-label="Settings"
+            >
+                <Settings size={20} />
+            </button>
+        )}
+
+        {/* Edit Icon (Moved to left to not conflict with settings, or just below settings) */}
         {!isEditing && (
             <button 
                 onClick={() => setIsEditing(true)} 
-                className="absolute top-4 right-4 p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors"
+                className="absolute top-4 left-4 p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors"
                 aria-label="Edit Profile"
             >
                 <Edit2 size={18} />
@@ -140,15 +153,6 @@ const ProfileView: React.FC<Props> = ({ onLogout }) => {
            {user.badges.length === 0 && <p className="text-sm text-gray-400">Keep learning to earn badges!</p>}
         </div>
       </div>
-
-      {/* Logout Button */}
-      <button 
-        type="button"
-        onClick={handleLogoutClick}
-        className="w-full bg-red-50 text-red-600 border border-red-200 py-3 rounded-xl font-medium flex items-center justify-center gap-2 active:scale-95 transition-transform cursor-pointer"
-      >
-        <LogOut size={18} /> Log Out
-      </button>
     </div>
   );
 };
