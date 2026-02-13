@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   Sparkles, MessageSquare, Image as ImageIcon, Video, Mic, 
-  Search, Volume2, Edit, Zap, BrainCircuit, Loader2, Play, Paperclip, X, Settings2, Send
+  Search, Volume2, Edit, Zap, BrainCircuit, Loader2, Play, Paperclip, X, Settings2, Send, Square
 } from 'lucide-react';
 import * as GeminiService from '../services/geminiService';
 import { GeminiModel } from '../types';
@@ -22,6 +22,11 @@ const GeminiTools: React.FC = () => {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState<ToolMode>('chat');
+  
+  // Recording State
+  const [isRecording, setIsRecording] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
   
   // Settings
   const [useSearch, setUseSearch] = useState(false);
@@ -51,6 +56,66 @@ const GeminiTools: React.FC = () => {
      }
      return true;
   }
+
+  const handleMicClick = async () => {
+    if (isRecording) {
+        mediaRecorderRef.current?.stop();
+        setIsRecording(false);
+    } else {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            
+            // Prefer formats supported by browsers and Gemini
+            let options = {};
+            if (MediaRecorder.isTypeSupported('audio/webm')) {
+                options = { mimeType: 'audio/webm' };
+            } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
+                options = { mimeType: 'audio/mp4' };
+            }
+            
+            const mediaRecorder = new MediaRecorder(stream, options);
+            mediaRecorderRef.current = mediaRecorder;
+            audioChunksRef.current = [];
+
+            mediaRecorder.ondataavailable = (event) => {
+                if (event.data.size > 0) {
+                    audioChunksRef.current.push(event.data);
+                }
+            };
+
+            mediaRecorder.onstop = () => {
+                const mimeType = mediaRecorder.mimeType || 'audio/webm';
+                const blob = new Blob(audioChunksRef.current, { type: mimeType });
+                stream.getTracks().forEach(track => track.stop()); // Stop mic
+                
+                // Convert to base64
+                const reader = new FileReader();
+                reader.readAsDataURL(blob);
+                reader.onloadend = async () => {
+                    const base64 = reader.result as string;
+                    setLoading(true); 
+                    try {
+                        const text = await GeminiService.transcribeAudio(base64);
+                        if (text) {
+                            setInput(prev => prev ? `${prev} ${text}` : text);
+                        }
+                    } catch (e) {
+                        console.error("Transcription error", e);
+                        setMessages(prev => [...prev, { role: 'model', type: 'text', content: "⚠️ Transcription failed. Please try again." }]);
+                    } finally {
+                        setLoading(false);
+                    }
+                };
+            };
+
+            mediaRecorder.start();
+            setIsRecording(true);
+        } catch (e) {
+            console.error("Mic error", e);
+            alert("Could not access microphone.");
+        }
+    }
+  };
 
   const handleSend = async () => {
     if (!input.trim() && !selectedFile) return;
@@ -345,9 +410,18 @@ const GeminiTools: React.FC = () => {
             <button 
                 onClick={() => fileInputRef.current?.click()} 
                 className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors"
+                title="Attach Image"
             >
                 <Paperclip size={20} />
                 <input type="file" ref={fileInputRef} className="hidden" onChange={(e) => setSelectedFile(e.target.files?.[0] || null)} />
+            </button>
+            
+            <button 
+                onClick={handleMicClick}
+                className={`p-2 rounded-full transition-colors ${isRecording ? 'bg-red-100 text-red-600 animate-pulse' : 'text-gray-400 hover:text-blue-600 hover:bg-blue-50'}`}
+                title={isRecording ? "Stop Recording" : "Record Voice"}
+            >
+                {isRecording ? <Square size={20} fill="currentColor" /> : <Mic size={20} />}
             </button>
             
             <input 
@@ -356,6 +430,7 @@ const GeminiTools: React.FC = () => {
                 onChange={(e) => setInput(e.target.value)} 
                 onKeyDown={(e) => e.key === 'Enter' && handleSend()}
                 placeholder={
+                    isRecording ? "Listening..." :
                     selectedFile ? (mode === 'generate_image' ? "Describe edits..." : "Ask about this image...") :
                     mode === 'chat' ? "Ask anything..." : 
                     mode === 'generate_image' ? "Describe image to create..." :

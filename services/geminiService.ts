@@ -218,14 +218,27 @@ export const generateSpeech = async (text: string) => {
 export const transcribeAudio = async (base64Audio: string) => {
     return withRetry(async () => {
         const ai = await getClient();
+        
+        let mimeType = 'audio/wav';
+        let data = base64Audio;
+        
+        // Extract MIME type if present in data URL
+        if (base64Audio.includes(';base64,')) {
+            const parts = base64Audio.split(';base64,');
+            mimeType = parts[0].replace('data:', '');
+            data = parts[1];
+        } else if (base64Audio.includes(',')) {
+             data = base64Audio.split(',')[1];
+        }
+
         const response = await ai.models.generateContent({
             model: GeminiModel.FLASH_3,
             contents: {
                 parts: [
                     {
                         inlineData: {
-                            mimeType: 'audio/wav', // Assuming wav input from recorder
-                            data: base64Audio.split(',')[1]
+                            mimeType: mimeType, 
+                            data: data
                         }
                     },
                     { text: "Transcribe this audio exactly." }
