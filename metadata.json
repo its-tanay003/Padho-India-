@@ -1,8 +1,7 @@
 {
   "name": "Padho India",
-  "description": "Offline-first educational platform for rural India empowered by Gemini AI.",
+  "description": "An interactive, offline-first educational platform for rural Indian kids featuring gamified learning, regional language support, and voice-assisted quizzes.",
   "requestFramePermissions": [
-    "microphone",
-    "camera"
+    "microphone"
   ]
 }
