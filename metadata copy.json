@@ -1,0 +1,7 @@
+{
+  "name": "Padho India",
+  "description": "An interactive, offline-first educational platform for rural Indian kids featuring gamified learning, regional language support, and voice-assisted quizzes.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
