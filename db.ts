@@ -12,8 +12,8 @@ export class EduDatabase extends Dexie {
   constructor() {
     super('PadhoIndiaDB');
     // @ts-ignore
-    this.version(5).stores({
-      users: '++id, phoneNumber, name, role',
+    this.version(6).stores({
+      users: '++id, phoneNumber, email, name, role',
       courses: '++id, title, subject',
       modules: '++id, courseId',
       teacher_uploads: '++id, teacherId',
@@ -23,6 +23,14 @@ export class EduDatabase extends Dexie {
 }
 
 export const db = new EduDatabase();
+
+// --- Security Helper ---
+export const hashPin = async (pin: string): Promise<string> => {
+  const msgBuffer = new TextEncoder().encode(pin);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
 
 // --- Helper Functions ---
 

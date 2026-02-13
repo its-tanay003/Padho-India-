@@ -3,7 +3,9 @@ export type ModuleType = 'video' | 'quiz';
 
 export interface User {
   id?: number;
-  phoneNumber?: string;
+  phoneNumber?: string; // Kept for legacy support if needed
+  email?: string; // New: Google Email
+  pin?: string;   // New: Hashed PIN
   grade?: string;
   name: string;
   xp: number;
@@ -13,6 +15,8 @@ export interface User {
   language?: string; // 'en', 'hi', etc.
   badges: string[];
   quizzesPassed: number;
+  showDailyGyan?: boolean;
+  darkMode?: boolean;
 }
 
 export interface Course {

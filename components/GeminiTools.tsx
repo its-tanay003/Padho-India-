@@ -56,13 +56,10 @@ const GeminiTools: React.FC = () => {
     if (!input.trim() && !selectedFile) return;
     
     // Add User Message immediately
-    // If text accompanies image, we might want to show text too, 
-    // but for simplicity in this list, we'll just show the main content or text.
-    
     setMessages(prev => [...prev, {
         role: 'user',
         type: selectedFile ? 'image' : 'text',
-        content: input, // We store the prompt text here
+        content: input, 
         grounding: selectedFile ? { preview: URL.createObjectURL(selectedFile) } : undefined
     }]);
 
@@ -97,6 +94,9 @@ const GeminiTools: React.FC = () => {
 
       // 2. TEXT ONLY TOOLS
       if (mode === 'chat') {
+        // Ensure API Key is selected for high-tier models
+        await checkApiKey();
+        
         const history = messages
             .filter(m => m.type === 'text')
             .map(m => ({ role: m.role, parts: [{ text: m.content }] }));
@@ -140,9 +140,23 @@ const GeminiTools: React.FC = () => {
          playAudio(audioBase64);
       }
 
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      setMessages(prev => [...prev, { role: 'model', type: 'text', content: "Error: " + (e as Error).message }]);
+      // Handle Permission/Auth Errors
+      if (e?.status === 403 || e?.code === 403 || e?.message?.includes('403') || e?.message?.includes('PERMISSION_DENIED')) {
+          setMessages(prev => [...prev, { role: 'model', type: 'text', content: "⚠️ Access Denied. Please select a valid API Key." }]);
+          
+          // Trigger key selection if available
+          // @ts-ignore
+          if (window.aistudio) {
+             setTimeout(() => {
+                // @ts-ignore
+                window.aistudio.openSelectKey();
+             }, 1000);
+          }
+      } else {
+          setMessages(prev => [...prev, { role: 'model', type: 'text', content: "Error: " + (e as Error).message }]);
+      }
     } finally {
       if (!currentFile) setLoading(false); // If file, loading is handled in reader.onload
     }

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { HashRouter, Routes, Route, useNavigate, useParams } from 'react-router-dom';
+import { GoogleOAuthProvider } from '@react-oauth/google';
 import Layout from './components/Layout';
 import CourseCard from './components/CourseCard';
 import GeminiTools from './components/GeminiTools';
@@ -8,9 +9,11 @@ import ProfileView from './components/ProfileView';
 import DailyGyanPopup from './components/DailyGyanPopup';
 import { db, seedDatabase, addXP } from './db';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Play, CheckCircle, Award, BrainCircuit, Loader2 } from 'lucide-react';
+import { Play, CheckCircle, Award, BrainCircuit, Loader2, Download, Wifi, Headphones } from 'lucide-react';
 import { isAuthenticated, logoutUser } from './services/authService';
 import { LanguageProvider, useTranslation } from './contexts/LanguageContext';
+import { simulateDownload, getNetworkMode } from './services/networkSim';
+import { NetworkMode } from './types';
 
 // --- SUB-COMPONENTS FOR ROUTING ---
 
@@ -45,17 +48,61 @@ const CourseView: React.FC = () => {
   const modules = useLiveQuery(() => db.modules.where('courseId').equals(courseId).toArray(), [courseId]);
   const navigate = useNavigate();
   const { t } = useTranslation();
+  
+  // Download State
+  const [downloading, setDownloading] = useState(false);
+  const [progress, setProgress] = useState(0);
+
+  const handleDownload = async () => {
+    if (!course?.id) return;
+    setDownloading(true);
+    setProgress(0);
+    
+    await simulateDownload(course.id, (p) => {
+      setProgress(p);
+    });
+    
+    setDownloading(false);
+  };
 
   if (!course) return <div className="p-4">Loading...</div>;
 
   return (
     <div className="space-y-4">
       <button onClick={() => navigate('/')} className="text-sm text-blue-600 mb-2 font-medium">← {t('home')}</button>
+      
       <div className="flex justify-between items-start">
-         <h2 className="text-2xl font-bold text-gray-800">{course.title}</h2>
-         {course.isDownloaded && <span className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded-full font-medium">{t('available_offline')}</span>}
+         <div>
+            <h2 className="text-2xl font-bold text-gray-800">{course.title}</h2>
+            <p className="text-gray-600 text-sm mt-1">{course.description}</p>
+         </div>
+         
+         {/* Download UI */}
+         <div className="flex flex-col items-end">
+            {course.isDownloaded ? (
+                <span className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded-full font-medium flex items-center gap-1">
+                   <CheckCircle size={12} /> {t('available_offline')}
+                </span>
+            ) : downloading ? (
+                <div className="w-24">
+                   <div className="flex justify-between text-[10px] text-blue-600 mb-1 font-bold">
+                      <span>Downloading...</span>
+                      <span>{progress}%</span>
+                   </div>
+                   <div className="h-2 bg-blue-100 rounded-full overflow-hidden">
+                      <div className="h-full bg-blue-600 transition-all duration-300" style={{ width: `${progress}%` }}></div>
+                   </div>
+                </div>
+            ) : (
+                <button 
+                  onClick={handleDownload}
+                  className="bg-blue-50 hover:bg-blue-100 text-blue-600 text-xs px-3 py-1.5 rounded-full font-bold flex items-center gap-1 transition-colors"
+                >
+                   <Download size={14} /> Download
+                </button>
+            )}
+         </div>
       </div>
-      <p className="text-gray-600">{course.description}</p>
       
       <div className="space-y-3 mt-4">
         {modules?.map((mod, idx) => (
@@ -92,6 +139,13 @@ const ModuleView: React.FC = () => {
   const [showQuiz, setShowQuiz] = useState(false);
   const [justFinished, setJustFinished] = useState(false);
   const { t } = useTranslation();
+  
+  // Network Mode State
+  const [networkMode, setNetworkMode] = useState<NetworkMode>('Standard');
+
+  useEffect(() => {
+     setNetworkMode(getNetworkMode());
+  }, []);
 
   const handleFinish = async () => {
     if (!moduleData) return;
@@ -124,13 +178,28 @@ const ModuleView: React.FC = () => {
        
        {moduleData.type === 'video' && (
            <div className="aspect-video bg-black rounded-xl mb-4 flex items-center justify-center relative overflow-hidden group">
-              {/* Simulated Video Player */}
+              {/* Simulated Video Player with Network Awareness */}
               <div className="absolute inset-0 flex items-center justify-center bg-gray-900 text-white">
-                 <div className="text-center">
-                   <Play size={48} className="mx-auto mb-2 opacity-80" />
-                   <p className="text-sm font-mono opacity-60">Simulated Video Player</p>
-                   <p className="text-xs text-gray-500">{moduleData.videoUrl || moduleData.audioUrl}</p>
-                 </div>
+                 {networkMode === 'Lite' ? (
+                     <div className="text-center p-4 bg-gray-800 rounded-lg border border-gray-700">
+                        <Headphones size={48} className="mx-auto mb-2 text-yellow-400" />
+                        <p className="text-sm font-bold text-yellow-400 mb-1">Lite Mode Active</p>
+                        <p className="text-xs text-gray-400">Video disabled to save data. Playing Audio Only.</p>
+                        <div className="mt-2 text-xs font-mono text-gray-500">{moduleData.audioUrl || moduleData.videoUrl}</div>
+                     </div>
+                 ) : (
+                     <div className="text-center">
+                        <Play size={48} className="mx-auto mb-2 opacity-80" />
+                        <p className="text-sm font-mono opacity-60">Simulated Video Player</p>
+                        <p className="text-xs text-gray-500">{moduleData.videoUrl || moduleData.audioUrl}</p>
+                     </div>
+                 )}
+              </div>
+              
+              {/* Network Badge */}
+              <div className="absolute top-2 right-2 bg-black/60 text-white text-[10px] px-2 py-1 rounded backdrop-blur-sm flex items-center gap-1">
+                  <Wifi size={10} className={networkMode === 'Lite' ? 'text-yellow-400' : 'text-green-400'} />
+                  {networkMode === 'Lite' ? 'Data Saver' : 'HD Quality'}
               </div>
            </div>
        )}
@@ -232,31 +301,28 @@ const App: React.FC = () => {
      );
   }
 
-  // Wrap authenticated part with LanguageProvider
-  // We can wrap AuthGateway too if we want it translated later
-  if (!isLoggedIn) {
-    return (
-      <LanguageProvider>
-        <AuthGateway onLoginSuccess={handleLogin} />
-      </LanguageProvider>
-    );
-  }
-
+  // Wrap everything in GoogleOAuthProvider
   return (
-    <LanguageProvider>
-      <HashRouter>
-        <Layout>
-          <Routes>
-            <Route path="/" element={<HomeView />} />
-            <Route path="/courses" element={<HomeView />} />
-            <Route path="/course/:id" element={<CourseView />} />
-            <Route path="/module/:id" element={<ModuleView />} />
-            <Route path="/ai-tools" element={<GeminiTools />} />
-            <Route path="/profile" element={<ProfileView onLogout={handleLogout} />} />
-          </Routes>
-        </Layout>
-      </HashRouter>
-    </LanguageProvider>
+    <GoogleOAuthProvider clientId="224866535963-vegeqokq4jocicak4ngcbfegq1gp446d.apps.googleusercontent.com">
+      <LanguageProvider>
+        {!isLoggedIn ? (
+          <AuthGateway onLoginSuccess={handleLogin} />
+        ) : (
+          <HashRouter>
+            <Layout>
+              <Routes>
+                <Route path="/" element={<HomeView />} />
+                <Route path="/courses" element={<HomeView />} />
+                <Route path="/course/:id" element={<CourseView />} />
+                <Route path="/module/:id" element={<ModuleView />} />
+                <Route path="/ai-tools" element={<GeminiTools />} />
+                <Route path="/profile" element={<ProfileView onLogout={handleLogout} />} />
+              </Routes>
+            </Layout>
+          </HashRouter>
+        )}
+      </LanguageProvider>
+    </GoogleOAuthProvider>
   );
 };
 
