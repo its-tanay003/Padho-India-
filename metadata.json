@@ -1,0 +1,8 @@
+{
+  "name": "Padho India",
+  "description": "Offline-first educational platform for rural India empowered by Gemini AI.",
+  "requestFramePermissions": [
+    "microphone",
+    "camera"
+  ]
+}
