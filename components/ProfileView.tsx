@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db';
 import { getSessionId } from '../services/authService';
-import { User, LogOut, Award, Flame, Phone } from 'lucide-react';
+import { User, LogOut, Award, Flame, Phone, Edit2, Check, X } from 'lucide-react';
 
 interface Props {
   onLogout: () => void;
@@ -11,10 +11,35 @@ interface Props {
 const ProfileView: React.FC<Props> = ({ onLogout }) => {
   const userId = getSessionId();
   const user = useLiveQuery(() => userId ? db.users.get(userId) : undefined, [userId]);
+  
+  const [isEditing, setIsEditing] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editGrade, setEditGrade] = useState('');
+
+  useEffect(() => {
+    if (user) {
+      setEditName(user.name);
+      setEditGrade(user.grade || '10');
+    }
+  }, [user]);
 
   const handleLogoutClick = () => {
-    // Removed confirm dialog to ensure immediate action and avoid browser blocking issues
     onLogout();
+  };
+
+  const handleSave = async () => {
+    if (userId && editName.trim()) {
+      await db.users.update(userId, { name: editName, grade: editGrade });
+      setIsEditing(false);
+    }
+  };
+
+  const handleCancel = () => {
+    if (user) {
+      setEditName(user.name);
+      setEditGrade(user.grade || '10');
+    }
+    setIsEditing(false);
   };
 
   if (!user) return <div className="p-4">Loading Profile...</div>;
@@ -22,15 +47,71 @@ const ProfileView: React.FC<Props> = ({ onLogout }) => {
   return (
     <div className="p-4 space-y-6">
       {/* Profile Header */}
-      <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center">
+      <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center relative">
+        
+        {/* Edit Button */}
+        {!isEditing && (
+            <button 
+                onClick={() => setIsEditing(true)} 
+                className="absolute top-4 right-4 p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors"
+                aria-label="Edit Profile"
+            >
+                <Edit2 size={18} />
+            </button>
+        )}
+
         <div className="w-24 h-24 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 mb-4">
            <User size={48} />
         </div>
-        <h2 className="text-2xl font-bold text-gray-900">{user.name}</h2>
-        <div className="flex items-center text-gray-500 text-sm mt-1 space-x-2">
-           {user.grade && <span className="bg-gray-100 px-2 py-0.5 rounded">Class {user.grade}</span>}
-           {user.phoneNumber && <span className="flex items-center"><Phone size={12} className="mr-1" /> {user.phoneNumber}</span>}
-        </div>
+
+        {isEditing ? (
+            <div className="w-full space-y-4 animate-in fade-in duration-200">
+                <div className="space-y-1">
+                    <label className="text-xs text-gray-500 font-bold uppercase tracking-wider">Name</label>
+                    <input 
+                        type="text" 
+                        value={editName} 
+                        onChange={(e) => setEditName(e.target.value)}
+                        className="w-full border border-gray-300 rounded-xl p-3 text-center font-bold text-gray-900 focus:ring-2 focus:ring-blue-500 outline-none"
+                        placeholder="Your Name"
+                    />
+                </div>
+                <div className="space-y-1">
+                    <label className="text-xs text-gray-500 font-bold uppercase tracking-wider">Grade</label>
+                    <select 
+                        value={editGrade} 
+                        onChange={(e) => setEditGrade(e.target.value)}
+                        className="w-full border border-gray-300 rounded-xl p-3 text-center bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+                    >
+                        {[...Array(12)].map((_, i) => (
+                            <option key={i} value={(i + 1).toString()}>Class {i + 1}</option>
+                        ))}
+                    </select>
+                </div>
+                <div className="flex gap-3 justify-center pt-2">
+                    <button 
+                        onClick={handleCancel} 
+                        className="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center gap-1"
+                    >
+                        <X size={16} /> Cancel
+                    </button>
+                    <button 
+                        onClick={handleSave} 
+                        className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg flex items-center gap-1 shadow-md"
+                    >
+                        <Check size={16} /> Save
+                    </button>
+                </div>
+            </div>
+        ) : (
+            <>
+                <h2 className="text-2xl font-bold text-gray-900">{user.name}</h2>
+                <div className="flex items-center text-gray-500 text-sm mt-1 space-x-2">
+                {user.grade && <span className="bg-gray-100 px-2 py-0.5 rounded">Class {user.grade}</span>}
+                {user.phoneNumber && <span className="flex items-center"><Phone size={12} className="mr-1" /> {user.phoneNumber}</span>}
+                </div>
+            </>
+        )}
       </div>
 
       {/* Stats Grid */}
