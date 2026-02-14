@@ -1,4 +1,3 @@
-
 import Dexie, { type Table } from 'dexie';
 import { User, Course, Module, TeacherUpload, SyncLog } from './types';
 import { getLevelInfo } from './gamification';
@@ -13,12 +12,12 @@ export class EduDatabase extends Dexie {
   constructor() {
     super('PadhoIndiaDB');
     // @ts-ignore
-    this.version(6).stores({
+    this.version(7).stores({
       users: '++id, phoneNumber, email, name, role',
       courses: '++id, title, subject',
       modules: '++id, courseId',
       teacher_uploads: '++id, teacherId',
-      sync_logs: '++id, isSynced'
+      sync_logs: '++id, isSynced, action'
     });
   }
 }
@@ -160,96 +159,138 @@ export const toggleLanguage = async (lang: string) => {
   return 'en';
 };
 
+export const logModuleCompletion = async (moduleId: number, courseId: number, type: string, title: string) => {
+    await logActivity('MODULE_COMPLETED', { moduleId, courseId, type, title });
+};
+
+export const captureUnloggedCompletions = async () => {
+    try {
+        // Find modules marked as completed
+        const completedModules = await db.modules.where('isCompleted').equals(true).toArray();
+        
+        // Find existing completion logs to avoid duplicates
+        const logs = await db.sync_logs.where('action').equals('MODULE_COMPLETED').toArray();
+        const loggedIds = new Set(logs.map(l => l.data.moduleId));
+
+        let count = 0;
+        for (const mod of completedModules) {
+            if (mod.id && !loggedIds.has(mod.id)) {
+                await logModuleCompletion(mod.id, mod.courseId, mod.type, mod.title);
+                count++;
+            }
+        }
+        if (count > 0) console.log(`[Sync] Backfilled ${count} completion logs.`);
+    } catch (e) {
+        console.error("Error capturing unlogged completions:", e);
+    }
+};
+
 // --- Seeder Function ---
 
 export const seedDatabase = async () => {
   try {
-    const userCount = await db.users.count();
-    
-    if (userCount === 0) {
-      // Keep only one seed user for demo if needed, but Google Auth is primary now
-      // Not adding seed user to force login flow on fresh start
-    }
-
-    // 2. Seed Courses & Modules
-    const courseCount = await db.courses.count();
-    if (courseCount === 0) {
-      // Course 1: Vedic Math
-      const id1 = await db.courses.add({
-        title: 'Vedic Math',
-        subject: 'Mathematics',
-        description: 'Ancient tricks for super-fast calculations.',
-        thumbnail: 'https://picsum.photos/400/200?random=1',
-        isDownloaded: false,
-        language: 'en',
-        totalModules: 2,
-        completedModules: 0
-      });
-
-      await db.modules.bulkAdd([
+    // Transaction ensures consistency when checking and adding courses
+    // Fix: cast db to any to resolve missing 'transaction' property TypeScript error
+    await (db as any).transaction('rw', db.courses, db.modules, async () => {
+      const seedCourses = [
         {
-          courseId: id1 as number,
-          title: 'Sutra 1: Ekadhikena Purvena',
-          videoUrl: 'sim_vedic_1.mp4',
-          type: 'video',
-          isCompleted: false,
-          content: 'Square numbers ending in 5 instantly.'
+          title: 'Vedic Math',
+          subject: 'Mathematics',
+          description: 'Ancient tricks for super-fast calculations.',
+          thumbnail: 'https://picsum.photos/400/200?random=1',
+          isDownloaded: false,
+          language: 'en',
+          totalModules: 2,
+          completedModules: 0,
+          modules: [
+            {
+              title: 'Sutra 1: Ekadhikena Purvena',
+              videoUrl: 'sim_vedic_1.mp4',
+              type: 'video',
+              isCompleted: false,
+              content: 'Square numbers ending in 5 instantly.'
+            },
+            {
+              title: 'Math Quiz',
+              type: 'quiz',
+              isCompleted: false,
+              quiz: {
+                question: 'What is the square of 25?',
+                options: ['625', '225', '525', '600'],
+                correctIndex: 0
+              }
+            }
+          ]
         },
         {
-          courseId: id1 as number,
-          title: 'Math Quiz',
-          type: 'quiz',
-          isCompleted: false,
-          quiz: {
-            question: 'What is the square of 25?',
-            options: ['625', '225', '525', '600'],
-            correctIndex: 0
-          }
+          title: 'Basic Science',
+          subject: 'Science',
+          description: 'Understanding the world around us.',
+          thumbnail: 'https://picsum.photos/400/200?random=2',
+          isDownloaded: true, // Simulated download
+          language: 'en',
+          totalModules: 1,
+          completedModules: 0,
+          modules: [
+            {
+              title: 'Photosynthesis',
+              videoUrl: 'sim_science_1.mp4',
+              type: 'video',
+              isCompleted: false,
+              content: 'How plants make food using sunlight.'
+            }
+          ]
+        },
+        {
+          title: 'English Grammar',
+          subject: 'English',
+          description: 'Master tenses and sentence structure.',
+          thumbnail: 'https://picsum.photos/400/200?random=3',
+          isDownloaded: false,
+          language: 'en',
+          totalModules: 1,
+          completedModules: 0,
+          modules: [
+            {
+              title: 'Present Tense',
+              audioUrl: 'sim_grammar_1.mp3',
+              type: 'video', // Using video type for simplicity in UI, though audioUrl is present
+              isCompleted: false,
+              content: 'Talking about daily habits.'
+            }
+          ]
         }
-      ]);
+      ];
 
-      // Course 2: Basic Science
-      const id2 = await db.courses.add({
-        title: 'Basic Science',
-        subject: 'Science',
-        description: 'Understanding the world around us.',
-        thumbnail: 'https://picsum.photos/400/200?random=2',
-        isDownloaded: true, // Simulated download
-        language: 'en',
-        totalModules: 1,
-        completedModules: 0
-      });
+      for (const courseData of seedCourses) {
+        // Robust check: Does this course title already exist?
+        const existingCourse = await db.courses.where('title').equals(courseData.title).first();
 
-      await db.modules.add({
-        courseId: id2 as number,
-        title: 'Photosynthesis',
-        videoUrl: 'sim_science_1.mp4',
-        type: 'video',
-        isCompleted: false,
-        content: 'How plants make food using sunlight.'
-      });
+        if (!existingCourse) {
+          // Destructure modules out, add course first to get ID
+          const { modules, ...courseInfo } = courseData;
+          // @ts-ignore
+          const courseId = await db.courses.add(courseInfo);
 
-      // Course 3: English Grammar
-      const id3 = await db.courses.add({
-        title: 'English Grammar',
-        subject: 'English',
-        description: 'Master tenses and sentence structure.',
-        thumbnail: 'https://picsum.photos/400/200?random=3',
-        isDownloaded: false,
-        language: 'en',
-        totalModules: 1,
-        completedModules: 0
-      });
+          // Prepare modules with the new courseId
+          const modulesWithId = modules.map(m => ({ ...m, courseId: courseId as number }));
+          
+          // @ts-ignore
+          await db.modules.bulkAdd(modulesWithId);
+          console.log(`Seeded course: ${courseInfo.title}`);
+        } else {
+            // Optional: Check if modules are missing for existing course (partial seed recovery)
+            const modulesCount = await db.modules.where('courseId').equals(existingCourse.id!).count();
+            if (modulesCount === 0 && courseData.modules.length > 0) {
+                 console.log(`Recovering modules for course: ${existingCourse.title}`);
+                 const modulesWithId = courseData.modules.map(m => ({ ...m, courseId: existingCourse.id! }));
+                 // @ts-ignore
+                 await db.modules.bulkAdd(modulesWithId);
+            }
+        }
+      }
+    });
 
-      await db.modules.add({
-        courseId: id3 as number,
-        title: 'Present Tense',
-        audioUrl: 'sim_grammar_1.mp3',
-        type: 'video', // Using video type for simplicity in UI, though audioUrl is present
-        isCompleted: false,
-        content: 'Talking about daily habits.'
-      });
-    }
   } catch (e) {
       console.error("Database Seeding Error", e);
   }

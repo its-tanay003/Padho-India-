@@ -3,14 +3,27 @@ import { NetworkMode } from '../types';
 
 /**
  * Simulates a download process with a delay.
- * Updates the local database upon completion.
+ * Now actually stores a dummy Blob in the modules to test offline player capabilities.
  */
 export const simulateDownload = async (courseId: number): Promise<boolean> => {
   return new Promise((resolve) => {
     console.log(`Starting download for course ${courseId}...`);
     setTimeout(async () => {
       try {
+        // 1. Mark Course as Downloaded
         await db.courses.update(courseId, { isDownloaded: true });
+        
+        // 2. Mock Download Video Blobs for Modules
+        const modules = await db.modules.where('courseId').equals(courseId).toArray();
+        for (const mod of modules) {
+            if (mod.type === 'video') {
+                // In a real app, we would fetch(mod.videoUrl).then(res => res.blob())
+                // Here we create a dummy blob to prove the architecture works
+                const mockBlob = new Blob(["Simulated Video Data"], { type: 'video/mp4' });
+                await db.modules.update(mod.id!, { offlineVideoBlob: mockBlob });
+            }
+        }
+
         await logActivity('COURSE_DOWNLOADED', { courseId });
         console.log(`Course ${courseId} download complete.`);
         resolve(true);

@@ -38,6 +38,7 @@ export interface Module {
   title: string;
   videoUrl?: string; 
   audioUrl?: string;
+  offlineVideoBlob?: Blob; // Added for offline support
   content?: string; // Kept for text content support
   type: ModuleType;
   isCompleted: boolean;

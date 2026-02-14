@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { HashRouter, Routes, Route, useNavigate, useParams } from 'react-router-dom';
 import Layout from './components/Layout';
@@ -6,6 +5,7 @@ import GeminiTools from './components/GeminiTools';
 import AuthGateway from './components/AuthGateway';
 import ProfileView from './components/ProfileView';
 import DailyGyanPopup from './components/DailyGyanPopup';
+import CoursePlayer from './components/CoursePlayer';
 import { db, seedDatabase, addXP } from './db';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Play, CheckCircle, Award, BrainCircuit, Loader2, ArrowRight, ChevronLeft, Download, Flame, Star, Lock, Search } from 'lucide-react';
@@ -295,7 +295,12 @@ const ModuleView: React.FC = () => {
   const handleFinish = async () => {
     if (!moduleData) return;
     await db.modules.update(moduleData.id!, { isCompleted: true });
-    await addXP(50);
+    // Note: CoursePlayer handles XP separately for videos, but we can double check logic here if needed.
+    // For now, we rely on CoursePlayer calling this onComplete.
+    
+    // Only add XP here if it's NOT a video (CoursePlayer handles video XP) or if we want a completion bonus.
+    // CoursePlayer adds 50 XP. We can just handle the module marking here.
+    
     const course = await db.courses.get(moduleData.courseId);
     if (course) {
         const count = await db.modules.where('courseId').equals(moduleData.courseId).filter(l => l.isCompleted).count();
@@ -319,11 +324,12 @@ const ModuleView: React.FC = () => {
             <h2 className="text-2xl font-black text-gray-800 mb-4">{moduleData.title}</h2>
             
             {moduleData.type === 'video' && (
-                <div className="aspect-video bg-gray-900 rounded-2xl mb-6 flex items-center justify-center relative overflow-hidden shadow-inner">
-                    <div className="text-center text-gray-400">
-                        <Play size={48} className="mx-auto mb-2 opacity-50" />
-                        <span className="text-xs font-mono">Video Player Simulation</span>
-                    </div>
+                <div className="mb-6">
+                    <CoursePlayer 
+                        module={moduleData} 
+                        onComplete={handleFinish} 
+                        poster="https://picsum.photos/800/400"
+                    />
                 </div>
             )}
 
@@ -343,6 +349,7 @@ const ModuleView: React.FC = () => {
                                 key={idx}
                                 onClick={() => {
                                     if (idx === moduleData.quiz?.correctIndex) {
+                                        addXP(50); // XP for Quiz
                                         handleFinish();
                                     } else {
                                         alert(t('try_again'));
@@ -356,16 +363,20 @@ const ModuleView: React.FC = () => {
                             </div>
                         </div>
                     ) : (
-                        <button onClick={() => moduleData.quiz ? setShowQuiz(true) : handleFinish()} className="w-full bg-gray-900 text-white py-4 rounded-2xl font-bold text-lg shadow-xl active:scale-95 transition-transform flex items-center justify-center gap-2">
-                        {moduleData.quiz ? "Start Quiz" : "Complete Module"} <ArrowRight size={20} />
-                        </button>
+                        // If it's a video, the "Complete" button is less relevant as the video player handles it, 
+                        // but we keep it for manual override or text-only modules.
+                        moduleData.type !== 'video' && (
+                            <button onClick={() => moduleData.quiz ? setShowQuiz(true) : handleFinish()} className="w-full bg-gray-900 text-white py-4 rounded-2xl font-bold text-lg shadow-xl active:scale-95 transition-transform flex items-center justify-center gap-2">
+                                {moduleData.quiz ? "Start Quiz" : "Complete Module"} <ArrowRight size={20} />
+                            </button>
+                        )
                     )}
                 </>
                 )}
 
                 {(moduleData.isCompleted || justFinished) && (
                     <div className="bg-green-100 text-green-700 p-4 rounded-2xl text-center font-bold flex items-center justify-center gap-2 animate-in zoom-in duration-300">
-                        <Award size={24} /> Module Completed! +50 XP
+                        <Award size={24} /> Module Completed!
                     </div>
                 )}
             </div>

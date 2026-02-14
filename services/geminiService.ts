@@ -1,14 +1,15 @@
+
 import { GoogleGenAI, Modality, Type } from "@google/genai";
 import { GeminiModel } from '../types';
 import { GEMINI_API_KEY } from '../constants';
 
 /**
  * Initialize the Gemini client.
- * Prioritizes: LocalStorage (Custom Key) > process.env.API_KEY > Default Constant
+ * Following the guideline to primarily use process.env.API_KEY while ensuring
+ * fallback to the user's provided key for local/specific environments.
  */
 const getClient = () => {
-  const customKey = localStorage.getItem('custom_gemini_key');
-  const apiKey = customKey || process.env.API_KEY || GEMINI_API_KEY;
+  const apiKey = process.env.API_KEY || GEMINI_API_KEY;
   return new GoogleGenAI({ apiKey });
 };
 
@@ -28,7 +29,7 @@ const withRetry = async <T>(fn: () => Promise<T>, retries = 3, baseDelay = 2000)
 
     const isPermissionError = error?.status === 403 || error?.message?.includes('403') || error?.message?.includes('permission');
 
-    if (retries > 0 && (isQuotaError || (isPermissionError && retries === 3))) {
+    if (retries > 0 && (isQuotaError || isPermissionError)) {
       console.warn(`Attempt failed (${error?.message}). Retrying in ${baseDelay}ms... (${retries} attempts left)`);
       await wait(baseDelay);
       return withRetry(fn, retries - 1, baseDelay * 2);
@@ -42,31 +43,28 @@ const withRetry = async <T>(fn: () => Promise<T>, retries = 3, baseDelay = 2000)
 export const getChatResponse = async (
   history: { role: string; parts: { text: string }[] }[],
   message: string,
-  model: string = 'gemini-flash-latest', 
+  model: string = GeminiModel.FLASH_3, // Defaulting to Flash 3 as per user request to avoid Pro conflict
   useThinking: boolean = false,
   useSearch: boolean = false
 ) => {
   return withRetry(async () => {
     const ai = getClient();
     
-    // Explicitly using the Flash alias to ensure compatibility with Free Tier projects
-    const selectedModel = 'gemini-flash-latest';
-
     const config: any = {
-      systemInstruction: "You are a helpful, patient, and encouraging tutor for a rural student in India. Keep answers simple, use analogies, and be culturally relevant. Communicate in a mix of Hindi and English (Hinglish).",
-      temperature: 0.7,
-      topP: 0.95,
-      topK: 40,
+      systemInstruction: "You are a helpful, patient, and encouraging tutor for a rural student in India. Keep answers simple, use analogies, and be culturally relevant."
     };
 
-    // Tools like googleSearch are often restricted on basic Free Tier keys; 
-    // we only add it if explicitly requested to avoid unnecessary 403s.
+    // Note: Thinking is only supported in specific models, but we'll prioritize Flash for stability.
+    if (useThinking && model.includes('pro')) {
+      config.thinkingConfig = { thinkingBudget: 32768 };
+    }
+
     if (useSearch) {
       config.tools = [{ googleSearch: {} }];
     }
 
     const response = await ai.models.generateContent({
-      model: selectedModel,
+      model: model,
       contents: [...history, { role: 'user', parts: [{ text: message }] }] as any,
       config,
     });
@@ -82,7 +80,7 @@ export const getFastDefinition = async (term: string) => {
   return withRetry(async () => {
     const ai = getClient();
     const response = await ai.models.generateContent({
-      model: 'gemini-flash-latest',
+      model: GeminiModel.FLASH_3,
       contents: `Define "${term}" simply for a student in one sentence.`,
     });
     return response.text;
@@ -95,7 +93,7 @@ export const generateImage = async (prompt: string, size: string = '1K', aspectR
   return withRetry(async () => {
     const ai = getClient();
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-image',
+      model: GeminiModel.IMAGE_FLASH,
       contents: { parts: [{ text: prompt }] },
       config: {
         imageConfig: {
@@ -117,7 +115,7 @@ export const editImage = async (base64Image: string, prompt: string) => {
   return withRetry(async () => {
     const ai = getClient();
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-image',
+      model: GeminiModel.IMAGE_FLASH,
       contents: {
         parts: [
           {
@@ -145,21 +143,39 @@ export const analyzeMedia = async (base64Data: string, mimeType: string, prompt:
         const ai = getClient();
         const parts: any[] = [];
 
-        parts.push({
-            inlineData: {
-                mimeType: mimeType,
-                data: base64Data.split(',')[1]
+        if (mimeType.startsWith('text/') || mimeType === 'application/json' || mimeType.includes('csv')) {
+            try {
+                const base64Content = base64Data.split(',')[1];
+                const decodedText = atob(base64Content);
+                parts.push({ text: `${prompt}\n\n[Attached File Content]:\n${decodedText}` });
+            } catch (e) {
+                 parts.push({
+                    inlineData: {
+                        mimeType: mimeType,
+                        data: base64Data.split(',')[1]
+                    }
+                });
+                parts.push({ text: prompt });
             }
-        });
-        parts.push({ text: prompt });
+        } 
+        else {
+            parts.push({
+                inlineData: {
+                    mimeType: mimeType,
+                    data: base64Data.split(',')[1]
+                }
+            });
+            parts.push({ text: prompt });
+        }
 
         const response = await ai.models.generateContent({
-          model: 'gemini-flash-latest',
+          model: GeminiModel.FLASH_3, // Switched from PRO_3 to FLASH_3 to fix permission issues
           contents: { parts }
         });
         return response.text;
     });
 };
+
 
 // --- AUDIO ---
 
@@ -167,7 +183,7 @@ export const generateSpeech = async (text: string) => {
   return withRetry(async () => {
     const ai = getClient();
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-preview-tts',
+      model: GeminiModel.TTS,
       contents: [{ parts: [{ text }] }],
       config: {
         responseModalities: [Modality.AUDIO],
@@ -195,7 +211,7 @@ export const transcribeAudio = async (base64Audio: string, mimeType: string = 'a
     return withRetry(async () => {
         const ai = getClient();
         const response = await ai.models.generateContent({
-            model: 'gemini-flash-latest',
+            model: GeminiModel.FLASH_3,
             contents: {
                 parts: [
                     {
@@ -219,7 +235,7 @@ export const generateVideo = async (prompt: string, ratio: '16:9' | '9:16') => {
   
   let operation = await withRetry(async () => {
       return await ai.models.generateVideos({
-        model: 'veo-3.1-fast-generate-preview',
+        model: GeminiModel.VEO_FAST,
         prompt: prompt,
         config: {
           numberOfVideos: 1,
