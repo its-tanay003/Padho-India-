@@ -1,11 +1,12 @@
+
 export type UserRole = 'student' | 'teacher';
 export type ModuleType = 'video' | 'quiz';
 
 export interface User {
   id?: number;
-  phoneNumber?: string; // Kept for legacy support if needed
-  email?: string; // New: Google Email
-  pin?: string;   // New: Hashed PIN
+  phoneNumber?: string;
+  email?: string;
+  pin?: string; // Hashed PIN
   grade?: string;
   name: string;
   xp: number;

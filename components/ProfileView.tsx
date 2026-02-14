@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from 'react';
+
+import React from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db';
 import { getSessionId } from '../services/authService';
-import { User, LogOut, Award, Flame, Phone, Edit2, Check, X, Settings } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { ChevronLeft, MapPin, Mail, Phone, Edit3, Award, Trophy, Settings } from 'lucide-react';
 import SettingsMenu from './SettingsMenu';
 
 interface Props {
@@ -12,33 +14,8 @@ interface Props {
 const ProfileView: React.FC<Props> = ({ onLogout }) => {
   const userId = getSessionId();
   const user = useLiveQuery(() => userId ? db.users.get(userId) : undefined, [userId]);
-  
-  const [showSettings, setShowSettings] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
-  const [editName, setEditName] = useState('');
-  const [editGrade, setEditGrade] = useState('');
-
-  useEffect(() => {
-    if (user) {
-      setEditName(user.name);
-      setEditGrade(user.grade || '10');
-    }
-  }, [user]);
-
-  const handleSave = async () => {
-    if (userId && editName.trim()) {
-      await db.users.update(userId, { name: editName, grade: editGrade });
-      setIsEditing(false);
-    }
-  };
-
-  const handleCancel = () => {
-    if (user) {
-      setEditName(user.name);
-      setEditGrade(user.grade || '10');
-    }
-    setIsEditing(false);
-  };
+  const navigate = useNavigate();
+  const [showSettings, setShowSettings] = React.useState(false);
 
   if (!user) return <div className="p-4">Loading Profile...</div>;
 
@@ -47,114 +24,100 @@ const ProfileView: React.FC<Props> = ({ onLogout }) => {
   }
 
   return (
-    <div className="p-4 space-y-6">
-      {/* Profile Header */}
-      <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center relative">
-        
-        {/* Settings Icon */}
-        {!isEditing && (
-            <button 
-                onClick={() => setShowSettings(true)} 
-                className="absolute top-4 right-4 p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors"
-                aria-label="Settings"
-            >
-                <Settings size={20} />
-            </button>
-        )}
+    <div className="space-y-6">
+       {/* Nav */}
+       <button onClick={() => navigate('/')} className="flex items-center gap-2 text-sm font-bold text-gray-500 hover:text-gray-800 w-fit bg-white px-3 py-1.5 rounded-full border border-gray-100 shadow-sm">
+         <ChevronLeft size={16} /> Back to Home
+       </button>
 
-        {/* Edit Icon (Moved to left to not conflict with settings, or just below settings) */}
-        {!isEditing && (
-            <button 
-                onClick={() => setIsEditing(true)} 
-                className="absolute top-4 left-4 p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors"
-                aria-label="Edit Profile"
-            >
-                <Edit2 size={18} />
-            </button>
-        )}
+       {/* Big Profile Card */}
+       <div className="bg-white rounded-3xl p-8 shadow-lg shadow-gray-100 border border-gray-50 flex flex-col items-center relative overflow-hidden">
+           
+           {/* Background Blob */}
+           <div className="absolute top-0 left-0 w-full h-24 bg-gradient-to-r from-green-50 to-emerald-50"></div>
 
-        <div className="w-24 h-24 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 mb-4">
-           <User size={48} />
-        </div>
+           <div className="relative z-10 flex flex-col items-center">
+               <div className="w-24 h-24 rounded-3xl bg-green-400 flex items-center justify-center text-4xl text-white font-bold shadow-xl shadow-green-100 mb-4 relative">
+                   {user.name.charAt(0)}
+                   <div className="absolute -bottom-2 -right-2 bg-yellow-400 p-1.5 rounded-full border-2 border-white text-white">
+                       <StarIcon size={14} fill="currentColor" />
+                   </div>
+               </div>
+               
+               <h2 className="text-2xl font-black text-gray-800">{user.name}</h2>
+               <p className="text-xs font-bold text-gray-400 tracking-widest uppercase mt-1">Level {user.level} Explorer</p>
+           </div>
 
-        {isEditing ? (
-            <div className="w-full space-y-4 animate-in fade-in duration-200">
-                <div className="space-y-1">
-                    <label className="text-xs text-gray-500 font-bold uppercase tracking-wider">Name</label>
-                    <input 
-                        type="text" 
-                        value={editName} 
-                        onChange={(e) => setEditName(e.target.value)}
-                        className="w-full border border-gray-300 rounded-xl p-3 text-center font-bold text-gray-900 focus:ring-2 focus:ring-blue-500 outline-none"
-                        placeholder="Your Name"
-                    />
+           {/* Info List */}
+           <div className="w-full mt-8 space-y-4">
+                <div className="flex items-center gap-4 p-3 rounded-2xl bg-gray-50 border border-gray-100">
+                    <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-gray-400 shadow-sm">
+                        <Mail size={18} />
+                    </div>
+                    <div>
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Email Address</p>
+                        <p className="font-bold text-gray-800 text-sm">{user.email || 'No email linked'}</p>
+                    </div>
                 </div>
-                <div className="space-y-1">
-                    <label className="text-xs text-gray-500 font-bold uppercase tracking-wider">Grade</label>
-                    <select 
-                        value={editGrade} 
-                        onChange={(e) => setEditGrade(e.target.value)}
-                        className="w-full border border-gray-300 rounded-xl p-3 text-center bg-white focus:ring-2 focus:ring-blue-500 outline-none"
-                    >
-                        {[...Array(12)].map((_, i) => (
-                            <option key={i} value={(i + 1).toString()}>Class {i + 1}</option>
-                        ))}
-                    </select>
-                </div>
-                <div className="flex gap-3 justify-center pt-2">
-                    <button 
-                        onClick={handleCancel} 
-                        className="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center gap-1"
-                    >
-                        <X size={16} /> Cancel
-                    </button>
-                    <button 
-                        onClick={handleSave} 
-                        className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg flex items-center gap-1 shadow-md"
-                    >
-                        <Check size={16} /> Save
-                    </button>
-                </div>
-            </div>
-        ) : (
-            <>
-                <h2 className="text-2xl font-bold text-gray-900">{user.name}</h2>
-                <div className="flex items-center text-gray-500 text-sm mt-1 space-x-2">
-                {user.grade && <span className="bg-gray-100 px-2 py-0.5 rounded">Class {user.grade}</span>}
-                {user.phoneNumber && <span className="flex items-center"><Phone size={12} className="mr-1" /> {user.phoneNumber}</span>}
-                </div>
-            </>
-        )}
-      </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-2 gap-4">
-         <div className="bg-orange-50 p-4 rounded-xl border border-orange-100 flex flex-col items-center">
-            <Flame className="text-orange-500 mb-2" size={24} />
-            <span className="text-2xl font-bold text-gray-800">{user.streak}</span>
-            <span className="text-xs text-gray-500 uppercase font-bold">Day Streak</span>
-         </div>
-         <div className="bg-purple-50 p-4 rounded-xl border border-purple-100 flex flex-col items-center">
-            <Award className="text-purple-500 mb-2" size={24} />
-            <span className="text-2xl font-bold text-gray-800">{user.xp}</span>
-            <span className="text-xs text-gray-500 uppercase font-bold">Total XP</span>
-         </div>
-      </div>
+                <div className="flex items-center gap-4 p-3 rounded-2xl bg-gray-50 border border-gray-100">
+                    <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-gray-400 shadow-sm">
+                        <Phone size={18} />
+                    </div>
+                    <div>
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Mobile Number</p>
+                        <p className="font-bold text-gray-800 text-sm">{user.phoneNumber || '+91 98765 43210'}</p>
+                    </div>
+                </div>
 
-      {/* Badges */}
-      <div className="bg-white p-4 rounded-xl border border-gray-100">
-        <h3 className="font-bold text-gray-800 mb-3">My Badges</h3>
-        <div className="flex flex-wrap gap-2">
-           {user.badges.map((b, i) => (
-             <span key={i} className="px-3 py-1 bg-yellow-50 text-yellow-700 border border-yellow-200 rounded-full text-xs font-medium">
-                {b}
-             </span>
-           ))}
-           {user.badges.length === 0 && <p className="text-sm text-gray-400">Keep learning to earn badges!</p>}
-        </div>
-      </div>
+                <div className="flex items-center gap-4 p-3 rounded-2xl bg-gray-50 border border-gray-100">
+                    <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-gray-400 shadow-sm">
+                        <MapPin size={18} />
+                    </div>
+                    <div>
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Village/Town</p>
+                        <p className="font-bold text-gray-800 text-sm">Kishanpur, Uttar Pradesh</p>
+                    </div>
+                </div>
+           </div>
+
+           {/* Achievements */}
+           <div className="w-full mt-6">
+                <h3 className="font-bold text-gray-800 mb-3">Achievements</h3>
+                <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
+                    {user.badges.map((b, i) => (
+                        <div key={i} className="flex-shrink-0 bg-white border border-gray-100 p-2 rounded-xl flex items-center gap-2 shadow-sm pr-4">
+                            <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center text-orange-500">
+                                <Trophy size={14} />
+                            </div>
+                            <div className="flex flex-col">
+                                <span className="font-bold text-xs text-gray-800">{b}</span>
+                                <span className="text-[8px] text-gray-400 font-bold">2023-10-01</span>
+                            </div>
+                        </div>
+                    ))}
+                    {user.badges.length === 0 && <span className="text-gray-400 text-xs font-medium italic">No badges yet. Play quizzes!</span>}
+                </div>
+           </div>
+
+           {/* Big CTA Button */}
+           <button 
+             onClick={() => setShowSettings(true)}
+             className="w-full bg-gray-900 text-white font-bold py-4 rounded-2xl mt-8 shadow-xl shadow-gray-200 active:scale-95 transition-transform flex items-center justify-center gap-2"
+           >
+             Update Profile Settings <Settings size={18} />
+           </button>
+
+       </div>
     </div>
   );
 };
+
+// Helper Icon
+const StarIcon = ({ size, fill }: { size: number, fill?: string }) => (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill={fill || "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+    </svg>
+);
 
 export default ProfileView;

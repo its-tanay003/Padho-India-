@@ -1,3 +1,4 @@
+
 import Dexie, { type Table } from 'dexie';
 import { User, Course, Module, TeacherUpload, SyncLog } from './types';
 import { getLevelInfo } from './gamification';
@@ -24,15 +25,53 @@ export class EduDatabase extends Dexie {
 
 export const db = new EduDatabase();
 
-// --- Security Helper ---
+// --- Crypto Helpers ---
+
 export const hashPin = async (pin: string): Promise<string> => {
-  const msgBuffer = new TextEncoder().encode(pin);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-}
+  const encoder = new TextEncoder();
+  const data = encoder.encode(pin);
+  const hash = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
+};
+
+export const verifyPin = async (inputPin: string, storedHash: string): Promise<boolean> => {
+  const inputHash = await hashPin(inputPin);
+  return inputHash === storedHash;
+};
 
 // --- Helper Functions ---
+
+export const findUserByEmail = async (email: string) => {
+  return await db.users.where('email').equals(email).first();
+};
+
+export const registerUserWithGoogle = async (name: string, email: string, pin: string) => {
+  const hashedPin = await hashPin(pin);
+  const id = await db.users.add({
+    name,
+    email,
+    pin: hashedPin,
+    role: 'student',
+    grade: '10', // Default
+    xp: 0,
+    level: 1,
+    streak: 1,
+    badges: ['New Explorer'],
+    quizzesPassed: 0,
+    language: 'en'
+  });
+  await logActivity('USER_REGISTERED_GOOGLE', { id, name });
+  return id;
+};
+
+export const createGuestAccount = async () => {
+  const email = 'guest@padhoindia.com';
+  const existing = await findUserByEmail(email);
+  if (existing) return existing.id!;
+  
+  // Create with default PIN 0000
+  return await registerUserWithGoogle('Guest Student', email, '0000');
+};
 
 export const logActivity = async (action: string, data: any) => {
   try {
@@ -51,18 +90,11 @@ export const logActivity = async (action: string, data: any) => {
 
 export const addXP = async (amount: number) => {
   try {
-    // Get current logged in user from local storage logic in a real app, 
-    // but here we fall back to the first user or handle it in the UI layer context.
-    // Ideally, we should pass userId to this function. 
-    // For this offline-first simplified architecture, we often assume single-user per device
-    // OR we will update this to fetch based on the 'active' session if possible.
-    
     const userId = parseInt(localStorage.getItem('padho_user_id') || '0');
     let user;
     if (userId) {
         user = await db.users.get(userId);
     } else {
-        // Fallback for seed/demo if no login
         user = await db.users.orderBy('id').first();
     }
 
@@ -134,24 +166,9 @@ export const seedDatabase = async () => {
   try {
     const userCount = await db.users.count();
     
-    // Note: We don't seed a default user anymore if we want the auth flow to be the primary entry,
-    // BUT for the "Guest" experience if someone bypasses or for existing logic, we can keep the teacher.
-    // We will let the AuthGateway handle creating the student user.
     if (userCount === 0) {
-      await db.users.bulkAdd([
-        { 
-          name: 'Amit Sir (Teacher)', 
-          phoneNumber: '9999999999',
-          grade: '12',
-          xp: 1000, 
-          level: 10, 
-          streak: 365, 
-          role: 'teacher', 
-          language: 'en',
-          badges: ['Teacher of the Year'],
-          quizzesPassed: 100
-        }
-      ]);
+      // Keep only one seed user for demo if needed, but Google Auth is primary now
+      // Not adding seed user to force login flow on fresh start
     }
 
     // 2. Seed Courses & Modules

@@ -1,3 +1,4 @@
+
 import { db, logActivity } from '../db';
 
 const SESSION_KEY = 'padho_user_id';
@@ -25,12 +26,17 @@ export const checkUserExists = async (phoneNumber: string) => {
     return user || null;
   } catch (e) {
     console.error("Error checking user:", e);
-    return null;
+    throw new Error("Unable to check user existence. Please verify your connection.");
   }
 };
 
 export const registerUser = async (phoneNumber: string, name: string, grade: string) => {
   try {
+    const existing = await checkUserExists(phoneNumber);
+    if (existing) {
+        throw new Error("A user with this phone number already exists.");
+    }
+
     const id = await db.users.add({
       phoneNumber,
       name,
@@ -46,9 +52,10 @@ export const registerUser = async (phoneNumber: string, name: string, grade: str
     
     await logActivity('USER_REGISTERED', { id, name });
     return id;
-  } catch (e) {
+  } catch (e: any) {
     console.error("Error registering user:", e);
-    throw e;
+    if (e.message) throw e;
+    throw new Error("Registration failed due to a database error.");
   }
 };
 

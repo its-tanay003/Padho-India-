@@ -1,18 +1,15 @@
 import { GoogleGenAI, Modality, Type } from "@google/genai";
 import { GeminiModel } from '../types';
+import { GEMINI_API_KEY } from '../constants';
 
-// Helper to get client. Re-creates if key changes (e.g. via window.aistudio).
-const getClient = async () => {
-  // Check for selected key from Veo/Pro flow
-  let apiKey = process.env.API_KEY;
-  
-  // @ts-ignore
-  if (window.aistudio && await window.aistudio.hasSelectedApiKey()) {
-      // @ts-ignore
-      // The actual key is injected into the environment by the internal platform when selected
-  }
-  
-  return new GoogleGenAI({ apiKey: process.env.API_KEY });
+/**
+ * Initialize the Gemini client.
+ * Prioritizes: LocalStorage (Custom Key) > process.env.API_KEY > Default Constant
+ */
+const getClient = () => {
+  const customKey = localStorage.getItem('custom_gemini_key');
+  const apiKey = customKey || process.env.API_KEY || GEMINI_API_KEY;
+  return new GoogleGenAI({ apiKey });
 };
 
 // --- RETRY LOGIC ---
@@ -29,8 +26,10 @@ const withRetry = async <T>(fn: () => Promise<T>, retries = 3, baseDelay = 2000)
                          error?.message?.toLowerCase().includes('quota') ||
                          error?.message?.toLowerCase().includes('resource_exhausted');
 
-    if (retries > 0 && isQuotaError) {
-      console.warn(`Quota exceeded. Retrying in ${baseDelay}ms... (${retries} attempts left)`);
+    const isPermissionError = error?.status === 403 || error?.message?.includes('403') || error?.message?.includes('permission');
+
+    if (retries > 0 && (isQuotaError || (isPermissionError && retries === 3))) {
+      console.warn(`Attempt failed (${error?.message}). Retrying in ${baseDelay}ms... (${retries} attempts left)`);
       await wait(baseDelay);
       return withRetry(fn, retries - 1, baseDelay * 2);
     }
@@ -43,41 +42,37 @@ const withRetry = async <T>(fn: () => Promise<T>, retries = 3, baseDelay = 2000)
 export const getChatResponse = async (
   history: { role: string; parts: { text: string }[] }[],
   message: string,
-  model: string = GeminiModel.PRO_3,
+  model: string = 'gemini-flash-latest', 
   useThinking: boolean = false,
   useSearch: boolean = false
 ) => {
   return withRetry(async () => {
-    const ai = await getClient();
+    const ai = getClient();
     
+    // Explicitly using the Flash alias to ensure compatibility with Free Tier projects
+    const selectedModel = 'gemini-flash-latest';
+
     const config: any = {
-      systemInstruction: "You are a helpful, patient, and encouraging tutor for a rural student in India. Keep answers simple, use analogies, and be culturally relevant."
+      systemInstruction: "You are a helpful, patient, and encouraging tutor for a rural student in India. Keep answers simple, use analogies, and be culturally relevant. Communicate in a mix of Hindi and English (Hinglish).",
+      temperature: 0.7,
+      topP: 0.95,
+      topK: 40,
     };
 
-    if (useThinking) {
-      config.thinkingConfig = { thinkingBudget: 32768 };
-    }
-
+    // Tools like googleSearch are often restricted on basic Free Tier keys; 
+    // we only add it if explicitly requested to avoid unnecessary 403s.
     if (useSearch) {
       config.tools = [{ googleSearch: {} }];
     }
 
-    // Manage History: Keep only the last 10 turns (user/model pairs) to save tokens/latency
-    const MAX_HISTORY_LENGTH = 20; 
-    const limitedHistory = history.length > MAX_HISTORY_LENGTH 
-        ? history.slice(history.length - MAX_HISTORY_LENGTH) 
-        : history;
-
-    const chat = ai.chats.create({
-      model: model,
+    const response = await ai.models.generateContent({
+      model: selectedModel,
+      contents: [...history, { role: 'user', parts: [{ text: message }] }] as any,
       config,
-      history: limitedHistory as any,
     });
-
-    const result = await chat.sendMessage({ message });
     
-    let text = result.text;
-    const grounding = result.candidates?.[0]?.groundingMetadata?.groundingChunks;
+    const text = response.text || '';
+    const grounding = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
     
     return { text, grounding };
   });
@@ -85,9 +80,9 @@ export const getChatResponse = async (
 
 export const getFastDefinition = async (term: string) => {
   return withRetry(async () => {
-    const ai = await getClient();
+    const ai = getClient();
     const response = await ai.models.generateContent({
-      model: GeminiModel.FLASH_LITE,
+      model: 'gemini-flash-latest',
       contents: `Define "${term}" simply for a student in one sentence.`,
     });
     return response.text;
@@ -98,20 +93,17 @@ export const getFastDefinition = async (term: string) => {
 
 export const generateImage = async (prompt: string, size: string = '1K', aspectRatio: string = '1:1') => {
   return withRetry(async () => {
-    const ai = await getClient();
-    // Using Pro Image model requires user key selection generally, handled by getClient logic context
+    const ai = getClient();
     const response = await ai.models.generateContent({
-      model: GeminiModel.IMAGE_PRO,
+      model: 'gemini-2.5-flash-image',
       contents: { parts: [{ text: prompt }] },
       config: {
         imageConfig: {
-          imageSize: size as any,
           aspectRatio: aspectRatio as any
         }
       }
     });
 
-    // Extract image
     for (const part of response.candidates?.[0]?.content?.parts || []) {
       if (part.inlineData) {
         return `data:image/png;base64,${part.inlineData.data}`;
@@ -123,15 +115,15 @@ export const generateImage = async (prompt: string, size: string = '1K', aspectR
 
 export const editImage = async (base64Image: string, prompt: string) => {
   return withRetry(async () => {
-    const ai = await getClient();
+    const ai = getClient();
     const response = await ai.models.generateContent({
-      model: GeminiModel.IMAGE_FLASH,
+      model: 'gemini-2.5-flash-image',
       contents: {
         parts: [
           {
             inlineData: {
-              mimeType: 'image/jpeg', // Assuming jpeg for simplicity, or detect
-              data: base64Image.split(',')[1] // remove prefix
+              mimeType: 'image/jpeg',
+              data: base64Image.split(',')[1]
             }
           },
           { text: prompt }
@@ -148,97 +140,68 @@ export const editImage = async (base64Image: string, prompt: string) => {
   });
 };
 
-export const analyzeImage = async (base64Image: string, prompt: string) => {
+export const analyzeMedia = async (base64Data: string, mimeType: string, prompt: string) => {
     return withRetry(async () => {
-        const ai = await getClient();
+        const ai = getClient();
+        const parts: any[] = [];
+
+        parts.push({
+            inlineData: {
+                mimeType: mimeType,
+                data: base64Data.split(',')[1]
+            }
+        });
+        parts.push({ text: prompt });
+
         const response = await ai.models.generateContent({
-          model: GeminiModel.PRO_3,
-          contents: {
-            parts: [
-              {
-                inlineData: {
-                    mimeType: 'image/jpeg',
-                    data: base64Image.split(',')[1]
-                }
-              },
-              { text: prompt }
-            ]
-          }
+          model: 'gemini-flash-latest',
+          contents: { parts }
         });
         return response.text;
     });
 };
 
-
 // --- AUDIO ---
 
 export const generateSpeech = async (text: string) => {
   return withRetry(async () => {
-    const ai = await getClient();
-    try {
-        const response = await ai.models.generateContent({
-          model: GeminiModel.TTS,
-          contents: [{ parts: [{ text }] }],
-          config: {
-            responseModalities: [Modality.AUDIO],
-            speechConfig: {
-              voiceConfig: {
-                prebuiltVoiceConfig: { voiceName: 'Kore' },
-              },
-            },
+    const ai = getClient();
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash-preview-tts',
+      contents: [{ parts: [{ text }] }],
+      config: {
+        responseModalities: [Modality.AUDIO],
+        speechConfig: {
+          voiceConfig: {
+            prebuiltVoiceConfig: { voiceName: 'Kore' },
           },
-        });
+        },
+      },
+    });
 
-        const parts = response.candidates?.[0]?.content?.parts;
-        
-        if (parts) {
-            // Look for audio part
-            for (const part of parts) {
-              if (part.inlineData?.data) {
-                  return part.inlineData.data;
-              }
-            }
-            
-            // Look for text part (refusal or error)
-            const textPart = parts.find(p => p.text);
-            if (textPart) {
-                console.warn("TTS returned text:", textPart.text);
-                throw new Error(textPart.text);
-            }
+    const parts = response.candidates?.[0]?.content?.parts;
+    if (parts) {
+        for (const part of parts) {
+          if (part.inlineData?.data) {
+              return part.inlineData.data;
+          }
         }
-
-        throw new Error("No audio generated");
-    } catch (e: any) {
-        console.error("TTS Error", e);
-        throw e; // Rethrow so withRetry can catch it
     }
+    throw new Error("No audio generated");
   });
 };
 
-export const transcribeAudio = async (base64Audio: string) => {
+export const transcribeAudio = async (base64Audio: string, mimeType: string = 'audio/wav') => {
     return withRetry(async () => {
-        const ai = await getClient();
-        
-        let mimeType = 'audio/wav';
-        let data = base64Audio;
-        
-        // Extract MIME type if present in data URL
-        if (base64Audio.includes(';base64,')) {
-            const parts = base64Audio.split(';base64,');
-            mimeType = parts[0].replace('data:', '');
-            data = parts[1];
-        } else if (base64Audio.includes(',')) {
-             data = base64Audio.split(',')[1];
-        }
-
+        const ai = getClient();
         const response = await ai.models.generateContent({
-            model: GeminiModel.FLASH_3,
+            model: 'gemini-flash-latest',
             contents: {
                 parts: [
                     {
                         inlineData: {
-                            mimeType: mimeType, 
-                            data: data
+                            mimeType: mimeType,
+                            data: base64Audio.split(',')[1]
                         }
                     },
                     { text: "Transcribe this audio exactly." }
@@ -252,12 +215,11 @@ export const transcribeAudio = async (base64Audio: string) => {
 // --- VIDEO ---
 
 export const generateVideo = async (prompt: string, ratio: '16:9' | '9:16') => {
-  const ai = await getClient();
+  const ai = getClient();
   
-  // Veo requires polling
   let operation = await withRetry(async () => {
       return await ai.models.generateVideos({
-        model: GeminiModel.VEO_FAST,
+        model: 'veo-3.1-fast-generate-preview',
         prompt: prompt,
         config: {
           numberOfVideos: 1,
@@ -267,26 +229,12 @@ export const generateVideo = async (prompt: string, ratio: '16:9' | '9:16') => {
       });
   });
 
-  // Simple polling logic
   while (!operation.done) {
-    await new Promise(resolve => setTimeout(resolve, 5000));
-    try {
-        operation = await ai.operations.getVideosOperation({operation: operation});
-    } catch (e: any) {
-        // If polling hits quota, wait and continue instead of failing immediately
-        if (e?.status === 429) {
-            console.warn("Quota exceeded during polling. Retrying in 5s...");
-            await new Promise(resolve => setTimeout(resolve, 5000));
-            continue;
-        }
-        throw e;
-    }
+    await new Promise(resolve => setTimeout(resolve, 10000));
+    operation = await ai.operations.getVideosOperation({operation: operation});
   }
 
   const videoUri = operation.response?.generatedVideos?.[0]?.video?.uri;
   if (!videoUri) throw new Error("Video generation failed");
-  
-  // In a real app we would fetch the bytes. Here we return the URI. 
-  // The component will need to fetch it with the key.
   return videoUri;
 };

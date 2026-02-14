@@ -1,3 +1,4 @@
+
 import React from 'react';
 import GoogleAuth from './GoogleAuth';
 import { BookOpen } from 'lucide-react';
@@ -17,14 +18,14 @@ const AuthGateway: React.FC<Props> = ({ onLoginSuccess }) => {
              <BookOpen className="text-white" size={32} />
            </div>
            <h1 className="text-2xl font-bold text-gray-800">Padho India</h1>
-           <p className="text-gray-500 text-sm">Offline-First Education</p>
+           <p className="text-gray-500 text-sm">Your Offline-First School</p>
         </div>
 
-        {/* Google Auth Integration */}
+        {/* Authentication Flow */}
         <GoogleAuth onLoginSuccess={onLoginSuccess} />
         
       </div>
-      <p className="mt-8 text-xs text-gray-400">v1.1.0 • Powered by Gemini & Dexie</p>
+      <p className="mt-8 text-xs text-gray-400">v1.1.0 • Offline PIN Supported</p>
     </div>
   );
 };

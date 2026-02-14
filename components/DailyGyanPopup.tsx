@@ -1,9 +1,10 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db';
 import { getSessionId } from '../services/authService';
 import { facts, Fact } from '../data/facts';
-import { X, Volume2, VolumeX, Sparkles, ThumbsUp, HelpCircle } from 'lucide-react';
+import { X, Volume2, VolumeX, Sparkles, ThumbsUp, HelpCircle, Settings2, Check } from 'lucide-react';
 import { useTranslation } from '../contexts/LanguageContext';
 
 const DailyGyanPopup: React.FC = () => {
@@ -12,8 +13,11 @@ const DailyGyanPopup: React.FC = () => {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [interactionStep, setInteractionStep] = useState<'READING' | 'QUESTION' | 'CLOSING'>('READING');
-  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   
+  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [showVoiceSettings, setShowVoiceSettings] = useState(false);
+  const [selectedVoiceURI, setSelectedVoiceURI] = useState<string>('');
+
   const userId = getSessionId();
   const user = useLiveQuery(() => userId ? db.users.get(userId) : undefined, [userId]);
   const speechRef = useRef<SpeechSynthesisUtterance | null>(null);
@@ -27,6 +31,12 @@ const DailyGyanPopup: React.FC = () => {
     };
     loadVoices();
     window.speechSynthesis.onvoiceschanged = loadVoices;
+  }, []);
+
+  // Load saved voice preference
+  useEffect(() => {
+    const saved = localStorage.getItem('padho_voice_uri');
+    if (saved) setSelectedVoiceURI(saved);
   }, []);
 
   // Main Trigger Logic
@@ -67,14 +77,20 @@ const DailyGyanPopup: React.FC = () => {
     }
   }, [user, userId, language]); 
 
-  const getVoiceForLanguage = () => {
-    // If language is Hindi (hi) or Hinglish (hg), prefer Hindi voices
+  const getPreferredVoice = () => {
+    // 1. User selected
+    if (selectedVoiceURI) {
+        const found = voices.find(v => v.voiceURI === selectedVoiceURI);
+        if (found) return found;
+    }
+
+    // 2. Language match (Hindi/Hinglish)
     if (language === 'hi' || language === 'hg') {
         const hindiVoice = voices.find(v => v.lang.includes('hi') || v.name.includes('Hindi'));
         if (hindiVoice) return hindiVoice;
     }
 
-    // Default Fallback / English
+    // 3. Heuristic for Female/Pleasant voices
     return voices.find(v => v.name.includes('Zira')) || 
            voices.find(v => v.name.includes('Google US English')) || 
            voices.find(v => v.name.includes('Samantha')) || 
@@ -88,7 +104,7 @@ const DailyGyanPopup: React.FC = () => {
     window.speechSynthesis.cancel();
     
     const utterance = new SpeechSynthesisUtterance(text);
-    const voice = getVoiceForLanguage();
+    const voice = getPreferredVoice();
     if (voice) utterance.voice = voice;
     
     utterance.rate = 0.9;
@@ -137,6 +153,24 @@ const DailyGyanPopup: React.FC = () => {
       setIsMuted(true);
     } else {
       setIsMuted(false);
+      // Restart speaking if we were in reading phase
+      if (interactionStep === 'READING' && fact && user) {
+          handleSpeakFact(fact, user.name);
+      }
+    }
+  };
+
+  const handleVoiceSelection = (uri: string) => {
+    setSelectedVoiceURI(uri);
+    localStorage.setItem('padho_voice_uri', uri);
+    
+    // Preview
+    window.speechSynthesis.cancel();
+    const v = voices.find(voice => voice.voiceURI === uri);
+    if (v) {
+        const u = new SpeechSynthesisUtterance("Namaste! I am your AI Tutor.");
+        u.voice = v;
+        window.speechSynthesis.speak(u);
     }
   };
 
@@ -179,7 +213,7 @@ const DailyGyanPopup: React.FC = () => {
         </div>
 
         {/* Content Section */}
-        <div className="p-6 flex-1 overflow-y-auto">
+        <div className="p-6 flex-1 overflow-y-auto relative">
           
           {/* Fact Text & Animation */}
           <div className="flex items-start space-x-3 mb-6">
@@ -239,16 +273,44 @@ const DailyGyanPopup: React.FC = () => {
         </div>
         
         {/* Footer Controls */}
-        <div className="bg-gray-50 p-3 flex justify-between items-center border-t border-gray-100">
-             <button 
-                 onClick={toggleMute}
-                 className="p-2 rounded-full text-gray-500 hover:bg-gray-200"
-             >
-                 {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
-             </button>
+        <div className="bg-gray-50 p-3 flex justify-between items-center border-t border-gray-100 relative z-20">
+             <div className="flex gap-2">
+                <button 
+                    onClick={toggleMute}
+                    className="p-2 rounded-full text-gray-500 hover:bg-gray-200 transition-colors"
+                >
+                    {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
+                </button>
+                <button 
+                    onClick={() => setShowVoiceSettings(!showVoiceSettings)}
+                    className={`p-2 rounded-full transition-colors ${showVoiceSettings ? 'bg-blue-100 text-blue-600' : 'text-gray-500 hover:bg-gray-200'}`}
+                >
+                    <Settings2 size={20} />
+                </button>
+             </div>
+             
              <div className="text-[10px] text-gray-400 uppercase font-bold tracking-widest">
                  VidyaSetu AI
              </div>
+
+             {/* Voice Selection Menu (Absolute positioned upwards) */}
+             {showVoiceSettings && (
+                 <div className="absolute bottom-full left-0 m-3 w-64 bg-white rounded-xl shadow-xl border border-gray-100 max-h-48 overflow-y-auto z-30 animate-in slide-in-from-bottom-2">
+                     <div className="p-2 sticky top-0 bg-white border-b border-gray-100 font-bold text-xs text-gray-500 uppercase tracking-wider">
+                         Select Voice
+                     </div>
+                     {voices.map(v => (
+                         <button
+                            key={v.voiceURI}
+                            onClick={() => handleVoiceSelection(v.voiceURI)}
+                            className={`w-full text-left px-4 py-2 text-xs truncate hover:bg-blue-50 flex items-center justify-between ${selectedVoiceURI === v.voiceURI ? 'text-blue-600 font-bold bg-blue-50' : 'text-gray-600'}`}
+                         >
+                            <span>{v.name}</span>
+                            {selectedVoiceURI === v.voiceURI && <Check size={12} />}
+                         </button>
+                     ))}
+                 </div>
+             )}
         </div>
 
       </div>

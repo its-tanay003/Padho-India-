@@ -2,32 +2,23 @@ import { db, logActivity } from '../db';
 import { NetworkMode } from '../types';
 
 /**
- * Simulates a download process with a delay and progress updates.
+ * Simulates a download process with a delay.
  * Updates the local database upon completion.
  */
-export const simulateDownload = async (courseId: number, onProgress?: (percent: number) => void): Promise<boolean> => {
+export const simulateDownload = async (courseId: number): Promise<boolean> => {
   return new Promise((resolve) => {
     console.log(`Starting download for course ${courseId}...`);
-    let progress = 0;
-    const intervalTime = 300; // 300ms * 10 steps = 3 seconds total
-
-    const interval = setInterval(async () => {
-      progress += 10;
-      if (onProgress) onProgress(progress);
-
-      if (progress >= 100) {
-        clearInterval(interval);
-        try {
-          await db.courses.update(courseId, { isDownloaded: true });
-          await logActivity('COURSE_DOWNLOADED', { courseId });
-          console.log(`Course ${courseId} download complete.`);
-          resolve(true);
-        } catch (e) {
-          console.error("Download failed", e);
-          resolve(false);
-        }
+    setTimeout(async () => {
+      try {
+        await db.courses.update(courseId, { isDownloaded: true });
+        await logActivity('COURSE_DOWNLOADED', { courseId });
+        console.log(`Course ${courseId} download complete.`);
+        resolve(true);
+      } catch (e) {
+        console.error("Download failed", e);
+        resolve(false);
       }
-    }, intervalTime);
+    }, 3000); // 3 seconds delay
   });
 };
 
