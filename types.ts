@@ -18,6 +18,7 @@ export interface User {
   quizzesPassed: number;
   showDailyGyan?: boolean;
   darkMode?: boolean;
+  avatar?: string; // Custom profile image (URL or Base64)
 }
 
 export interface Course {

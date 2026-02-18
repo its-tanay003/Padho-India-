@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   Sparkles, MessageSquare, Image as ImageIcon, Video, Mic, 
-  Search, Volume2, Edit, Zap, BrainCircuit, Loader2, Play, Paperclip, X, Settings2, Send, StopCircle, ChevronLeft, PenTool, FileText, Key
+  Search, Volume2, Edit, Zap, BrainCircuit, Loader2, Play, Paperclip, X, Settings2, Send, StopCircle, ChevronLeft, PenTool, FileText, Key, Leaf, Book
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import * as GeminiService from '../services/geminiService';
@@ -315,43 +315,47 @@ const GeminiTools: React.FC = () => {
                 {/* Suggestion Grid */}
                 <div className="grid grid-cols-2 gap-3 w-full max-w-sm">
                     <button 
-                        onClick={() => { setMode('chat'); handleSend("Tell me a science fun fact"); }}
-                        className="bg-white p-4 rounded-2xl shadow-sm hover:shadow-lg border border-orange-50 hover:border-orange-200 transition-all text-left group active:scale-95"
-                    >
-                        <div className="bg-blue-100 w-10 h-10 rounded-full flex items-center justify-center text-blue-600 mb-2 group-hover:scale-110 transition-transform">
-                            <MessageSquare size={18} />
-                        </div>
-                        <span className="font-bold text-gray-700 text-sm">Ask a Question</span>
-                    </button>
-
-                    <button 
-                        onClick={() => { setMode('generate_image'); handleSend("A futuristic school in an Indian village"); }}
-                        className="bg-white p-4 rounded-2xl shadow-sm hover:shadow-lg border border-orange-50 hover:border-orange-200 transition-all text-left group active:scale-95"
-                    >
-                        <div className="bg-purple-100 w-10 h-10 rounded-full flex items-center justify-center text-purple-600 mb-2 group-hover:scale-110 transition-transform">
-                            <ImageIcon size={18} />
-                        </div>
-                        <span className="font-bold text-gray-700 text-sm">Create Image</span>
-                    </button>
-
-                     <button 
-                        onClick={() => { setMode('tts'); handleSend("Namaste and Welcome to Padho India"); }}
+                        onClick={() => { setMode('chat'); handleSend("How does photosynthesis work? Explain it simply."); }}
                         className="bg-white p-4 rounded-2xl shadow-sm hover:shadow-lg border border-orange-50 hover:border-orange-200 transition-all text-left group active:scale-95"
                     >
                         <div className="bg-green-100 w-10 h-10 rounded-full flex items-center justify-center text-green-600 mb-2 group-hover:scale-110 transition-transform">
-                            <Volume2 size={18} />
+                            <Leaf size={18} />
                         </div>
-                        <span className="font-bold text-gray-700 text-sm">Speak Text</span>
+                        <span className="font-bold text-gray-700 text-sm">Photosynthesis?</span>
+                        <p className="text-[10px] text-gray-400 mt-1">Ask a question</p>
+                    </button>
+
+                    <button 
+                        onClick={() => { setMode('generate_image'); handleSend("A majestic tiger walking in the Indian jungle, detailed, photorealistic"); }}
+                        className="bg-white p-4 rounded-2xl shadow-sm hover:shadow-lg border border-orange-50 hover:border-orange-200 transition-all text-left group active:scale-95"
+                    >
+                        <div className="bg-orange-100 w-10 h-10 rounded-full flex items-center justify-center text-orange-600 mb-2 group-hover:scale-110 transition-transform">
+                            <ImageIcon size={18} />
+                        </div>
+                        <span className="font-bold text-gray-700 text-sm">Tiger Image</span>
+                        <p className="text-[10px] text-gray-400 mt-1">Generate art</p>
                     </button>
 
                      <button 
-                        onClick={() => { setMode('generate_video'); handleSend("A peacock dancing in rain"); }}
+                        onClick={() => { setMode('tts'); handleSend("The woods are lovely, dark and deep, But I have promises to keep, And miles to go before I sleep."); }}
+                        className="bg-white p-4 rounded-2xl shadow-sm hover:shadow-lg border border-orange-50 hover:border-orange-200 transition-all text-left group active:scale-95"
+                    >
+                        <div className="bg-purple-100 w-10 h-10 rounded-full flex items-center justify-center text-purple-600 mb-2 group-hover:scale-110 transition-transform">
+                            <Volume2 size={18} />
+                        </div>
+                        <span className="font-bold text-gray-700 text-sm">Poem to Speech</span>
+                        <p className="text-[10px] text-gray-400 mt-1">Listen to audio</p>
+                    </button>
+
+                     <button 
+                        onClick={() => { setMode('generate_video'); handleSend("A peacock dancing in the rain"); }}
                         className="bg-white p-4 rounded-2xl shadow-sm hover:shadow-lg border border-orange-50 hover:border-orange-200 transition-all text-left group active:scale-95"
                     >
                         <div className="bg-red-100 w-10 h-10 rounded-full flex items-center justify-center text-red-600 mb-2 group-hover:scale-110 transition-transform">
                             <Video size={18} />
                         </div>
-                        <span className="font-bold text-gray-700 text-sm">Make Video</span>
+                        <span className="font-bold text-gray-700 text-sm">Peacock Video</span>
+                        <p className="text-[10px] text-gray-400 mt-1">Create video</p>
                     </button>
                 </div>
             </div>

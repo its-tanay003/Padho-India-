@@ -166,7 +166,8 @@ export const logModuleCompletion = async (moduleId: number, courseId: number, ty
 export const captureUnloggedCompletions = async () => {
     try {
         // Find modules marked as completed
-        const completedModules = await db.modules.where('isCompleted').equals(true).toArray();
+        // Fix: Use filter() since 'isCompleted' is not an indexed property
+        const completedModules = await db.modules.filter(m => m.isCompleted === true).toArray();
         
         // Find existing completion logs to avoid duplicates
         const logs = await db.sync_logs.where('action').equals('MODULE_COMPLETED').toArray();

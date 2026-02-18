@@ -11,7 +11,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { Play, CheckCircle, Award, BrainCircuit, Loader2, ArrowRight, ChevronLeft, Download, Flame, Star, Lock, Search } from 'lucide-react';
 import { isAuthenticated, logoutUser, getSessionId } from './services/authService';
 import { LanguageProvider, useTranslation } from './contexts/LanguageContext';
-import { simulateDownload } from './services/networkSim';
+import { simulateDownload, checkSyncStatus } from './services/networkSim';
 
 // --- STYLED COMPONENTS ---
 
@@ -397,6 +397,14 @@ const App: React.FC = () => {
         setIsLoggedIn(isAuthenticated());
         setCheckingAuth(false);
     });
+
+    // Auto-sync when online
+    const handleOnline = () => checkSyncStatus();
+    window.addEventListener('online', handleOnline);
+    // Initial check
+    checkSyncStatus();
+
+    return () => window.removeEventListener('online', handleOnline);
   }, []);
 
   const handleLogin = () => {

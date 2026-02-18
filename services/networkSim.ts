@@ -1,5 +1,6 @@
 import { db, logActivity } from '../db';
 import { NetworkMode } from '../types';
+import { supabase } from './supabaseClient';
 
 /**
  * Simulates a download process with a delay.
@@ -36,26 +37,41 @@ export const simulateDownload = async (courseId: number): Promise<boolean> => {
 };
 
 /**
- * Checks for network connectivity and attempts to sync local logs to the "server".
+ * Checks for network connectivity and attempts to sync local logs to Supabase.
  */
 export const checkSyncStatus = async (): Promise<void> => {
   if (navigator.onLine) {
+    // Get unsynced logs from IndexedDB
     const unsyncedLogs = await db.sync_logs.where('isSynced').equals(0).toArray(); // equals(0) checks for false/0
 
     if (unsyncedLogs.length > 0) {
-      console.group("Syncing Data...");
+      console.group("Syncing Data to Supabase...");
       console.log(`Found ${unsyncedLogs.length} unsynced items.`);
       
-      // Simulate API latency
-      await new Promise(r => setTimeout(r, 1000));
-      
-      for (const log of unsyncedLogs) {
-        console.log(`[UPLOADING] Action: ${log.action}`, log.data);
-        if (log.id) {
-           await db.sync_logs.update(log.id, { isSynced: true });
+      try {
+        // Prepare payload (exclude local ID if needed, but keeping it in metadata might be useful)
+        const payload = unsyncedLogs.map(log => ({
+          action: log.action,
+          data: log.data,
+          timestamp: new Date(log.timestamp).toISOString(),
+          // Add user_id if available in data, or handle authentication mapping here
+        }));
+
+        const { error } = await supabase.from('sync_logs').insert(payload);
+
+        if (error) {
+          throw error;
         }
+
+        // Mark as synced locally
+        // Note: Dexie bulk update logic needs iteration or a loop
+        const ids = unsyncedLogs.map(l => l.id as number);
+        await Promise.all(ids.map(id => db.sync_logs.update(id, { isSynced: true })));
+
+        console.log("Sync complete. All items uploaded to Cloud.");
+      } catch (err) {
+        console.error("Supabase Sync Failed:", err);
       }
-      console.log("Sync complete. All items uploaded.");
       console.groupEnd();
     } else {
       console.log("Sync Check: All systems up to date.");
