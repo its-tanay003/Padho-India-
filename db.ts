@@ -108,6 +108,26 @@ export const registerUserWithGoogle = async (name: string, email: string, pin: s
   return id;
 };
 
+export const registerUserManual = async (name: string, email: string, pin: string) => {
+  const hashedPin = await hashPin(pin);
+  const id = await db.users.add({
+    name,
+    email,
+    pin: hashedPin,
+    role: 'student',
+    grade: '10', // Default
+    xp: 0,
+    level: 1,
+    streak: 1,
+    badges: ['New Explorer'],
+    quizzesPassed: 0,
+    language: 'en'
+  });
+  // Log specifically as REGISTER EMAIL so we know to INSERT vs UPDATE
+  await logActivity('USER_REGISTERED_EMAIL', { id, name, email, pin: hashedPin });
+  return id;
+};
+
 export const createGuestAccount = async () => {
   const email = 'guest@padhoindia.com';
   const existing = await findUserByEmail(email);

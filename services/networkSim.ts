@@ -57,8 +57,8 @@ export const checkSyncStatus = async (): Promise<void> => {
             // We interpret the log action to update the correct Supabase table/column.
             // Assuming 'users' table exists in Supabase.
             
-            if (action === 'USER_REGISTERED_GOOGLE') {
-                // Upsert User
+            if (action === 'USER_REGISTERED_GOOGLE' || action === 'USER_REGISTERED_EMAIL') {
+                // Upsert User (handles both Google and Manual Email)
                 await supabase.from('users').upsert({
                     email: data.email,
                     name: data.name,
