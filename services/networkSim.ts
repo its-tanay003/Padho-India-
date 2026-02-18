@@ -1,5 +1,6 @@
+
 import { db, logActivity } from '../db';
-import { NetworkMode } from '../types';
+import { NetworkMode, User } from '../types';
 import { supabase } from './supabaseClient';
 
 /**
@@ -38,37 +39,90 @@ export const simulateDownload = async (courseId: number): Promise<boolean> => {
 
 /**
  * Checks for network connectivity and attempts to sync local logs to Supabase.
+ * Maps local logs to Supabase DB updates.
  */
 export const checkSyncStatus = async (): Promise<void> => {
   if (navigator.onLine) {
     // Get unsynced logs from IndexedDB
-    const unsyncedLogs = await db.sync_logs.where('isSynced').equals(0).toArray(); // equals(0) checks for false/0
+    const unsyncedLogs = await db.sync_logs.where('isSynced').equals(0).toArray();
 
     if (unsyncedLogs.length > 0) {
       console.group("Syncing Data to Supabase...");
-      console.log(`Found ${unsyncedLogs.length} unsynced items.`);
       
       try {
-        // Prepare payload (exclude local ID if needed, but keeping it in metadata might be useful)
-        const payload = unsyncedLogs.map(log => ({
-          action: log.action,
-          data: log.data,
-          timestamp: new Date(log.timestamp).toISOString(),
-          // Add user_id if available in data, or handle authentication mapping here
-        }));
+        for (const log of unsyncedLogs) {
+            const { action, data } = log;
+            
+            // --- SYNC STRATEGY ---
+            // We interpret the log action to update the correct Supabase table/column.
+            // Assuming 'users' table exists in Supabase.
+            
+            if (action === 'USER_REGISTERED_GOOGLE') {
+                // Upsert User
+                await supabase.from('users').upsert({
+                    email: data.email,
+                    name: data.name,
+                    pin: data.pin,
+                    role: 'student',
+                    xp: 0,
+                    level: 1,
+                    badges: ['New Explorer']
+                }, { onConflict: 'email' });
+            }
+            
+            else if (action === 'USER_UPDATE') {
+                // Generic User Update (Avatar, Settings, Name)
+                if (data.userId && data.updates) {
+                    const user = await db.users.get(data.userId);
+                    if (user && user.email) {
+                        // Map local keys to snake_case if needed, but for now assuming JS keys or auto-mapping
+                        const payload: any = {};
+                        if (data.updates.avatar) payload.avatar = data.updates.avatar;
+                        if (data.updates.darkMode !== undefined) payload.dark_mode = data.updates.darkMode;
+                        if (data.updates.showDailyGyan !== undefined) payload.show_daily_gyan = data.updates.showDailyGyan;
+                        if (data.updates.language) payload.language = data.updates.language;
+                        if (data.updates.name) payload.name = data.updates.name;
+                        
+                        if (Object.keys(payload).length > 0) {
+                             await supabase.from('users').update(payload).eq('email', user.email);
+                        }
+                    }
+                }
+            }
+            
+            else if (action === 'XP_GAINED') {
+                const user = await db.users.get(data.userId);
+                if (user && user.email) {
+                    await supabase.from('users').update({
+                        xp: data.newXP,
+                        level: data.level
+                    }).eq('email', user.email);
+                }
+            }
 
-        const { error } = await supabase.from('sync_logs').insert(payload);
+            else if (action === 'BADGE_EARNED') {
+                const user = await db.users.get(data.userId);
+                if (user && user.email) {
+                    await supabase.from('users').update({
+                        badges: data.badges // Send complete array
+                    }).eq('email', user.email);
+                }
+            }
+            
+            else if (action === 'QUIZ_PASSED') {
+                 const user = await db.users.get(data.userId);
+                 if (user && user.email) {
+                     await supabase.from('users').update({
+                         quizzes_passed: data.totalPassed
+                     }).eq('email', user.email);
+                 }
+            }
 
-        if (error) {
-          throw error;
+            // Mark as synced locally
+            await db.sync_logs.update(log.id!, { isSynced: true });
         }
 
-        // Mark as synced locally
-        // Note: Dexie bulk update logic needs iteration or a loop
-        const ids = unsyncedLogs.map(l => l.id as number);
-        await Promise.all(ids.map(id => db.sync_logs.update(id, { isSynced: true })));
-
-        console.log("Sync complete. All items uploaded to Cloud.");
+        console.log(`Synced ${unsyncedLogs.length} items to Cloud.`);
       } catch (err) {
         console.error("Supabase Sync Failed:", err);
       }

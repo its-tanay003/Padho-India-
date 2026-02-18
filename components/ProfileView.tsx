@@ -1,7 +1,7 @@
 
 import React, { useState, useRef } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '../db';
+import { db, updateUser } from '../db';
 import { getSessionId } from '../services/authService';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, MapPin, Mail, Phone, Edit3, Award, Trophy, Settings, Camera, Upload, X, Check } from 'lucide-react';
@@ -38,7 +38,7 @@ const ProfileView: React.FC<Props> = ({ onLogout }) => {
       const reader = new FileReader();
       reader.onloadend = async () => {
         const base64 = reader.result as string;
-        if (userId) await db.users.update(userId, { avatar: base64 });
+        if (userId) await updateUser(userId, { avatar: base64 });
         setShowAvatarModal(false);
       };
       reader.readAsDataURL(file);
@@ -46,7 +46,7 @@ const ProfileView: React.FC<Props> = ({ onLogout }) => {
   };
 
   const selectPreset = async (url: string) => {
-    if (userId) await db.users.update(userId, { avatar: url });
+    if (userId) await updateUser(userId, { avatar: url });
     setShowAvatarModal(false);
   };
 

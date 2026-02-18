@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '../db';
+import { db, updateUser } from '../db';
 import { getSessionId } from '../services/authService';
 import { useTranslation } from '../contexts/LanguageContext';
 import { Language } from '../data/translations';
@@ -29,20 +30,20 @@ const SettingsMenu: React.FC<Props> = ({ onBack, onLogout }) => {
 
   const toggleDarkMode = async () => {
     if (!user || !userId) return;
-    await db.users.update(userId, { darkMode: !user.darkMode });
+    await updateUser(userId, { darkMode: !user.darkMode });
   };
 
   const toggleDailyGyan = async () => {
     if (!user || !userId) return;
     // Default to true if undefined, so toggle logic handles the first switch correctly
     const currentVal = user.showDailyGyan !== false; 
-    await db.users.update(userId, { showDailyGyan: !currentVal });
+    await updateUser(userId, { showDailyGyan: !currentVal });
   };
 
   const saveName = async () => {
     if (!user || !userId) return;
     if (editName.trim()) {
-      await db.users.update(userId, { name: editName });
+      await updateUser(userId, { name: editName });
     }
   };
 

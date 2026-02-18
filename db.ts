@@ -1,6 +1,8 @@
+
 import Dexie, { type Table } from 'dexie';
 import { User, Course, Module, TeacherUpload, SyncLog } from './types';
 import { getLevelInfo } from './gamification';
+import { supabase } from './services/supabaseClient';
 
 export class EduDatabase extends Dexie {
   users!: Table<User>;
@@ -41,7 +43,49 @@ export const verifyPin = async (inputPin: string, storedHash: string): Promise<b
 // --- Helper Functions ---
 
 export const findUserByEmail = async (email: string) => {
-  return await db.users.where('email').equals(email).first();
+  // 1. Try Local First (Offline First)
+  let user = await db.users.where('email').equals(email).first();
+  
+  // 2. If not found and online, Try Cloud (Sync/Restore)
+  if (!user && navigator.onLine) {
+     try {
+         const { data, error } = await supabase.from('users').select('*').eq('email', email).single();
+         if (data && !error) {
+            // Map Cloud DB columns to Local DB types
+            const remoteUser: User = {
+                name: data.name,
+                email: data.email,
+                pin: data.pin,
+                phoneNumber: data.phone_number,
+                role: data.role || 'student',
+                grade: data.grade,
+                xp: data.xp || 0,
+                level: data.level || 1,
+                streak: data.streak || 0,
+                badges: data.badges || [],
+                quizzesPassed: data.quizzes_passed || 0,
+                language: data.language || 'en',
+                avatar: data.avatar,
+                darkMode: data.dark_mode,
+                showDailyGyan: data.show_daily_gyan
+            };
+            
+            // Hydrate Local DB
+            const id = await db.users.add(remoteUser);
+            user = { ...remoteUser, id: id as number };
+            console.log("User restored from Cloud");
+         }
+     } catch (e) {
+         console.warn("Cloud fetch failed", e);
+     }
+  }
+  return user;
+};
+
+export const updateUser = async (id: number, updates: Partial<User>) => {
+  await db.users.update(id, updates);
+  // Log for Sync
+  await logActivity('USER_UPDATE', { userId: id, updates });
 };
 
 export const registerUserWithGoogle = async (name: string, email: string, pin: string) => {
@@ -59,7 +103,8 @@ export const registerUserWithGoogle = async (name: string, email: string, pin: s
     quizzesPassed: 0,
     language: 'en'
   });
-  await logActivity('USER_REGISTERED_GOOGLE', { id, name });
+  // Log specifically as REGISTER so we know to INSERT vs UPDATE
+  await logActivity('USER_REGISTERED_GOOGLE', { id, name, email, pin: hashedPin });
   return id;
 };
 
@@ -140,8 +185,9 @@ export const addBadge = async (badge: string) => {
         else user = await db.users.orderBy('id').first();
 
         if (user && user.id && !user.badges.includes(badge)) {
-            await db.users.update(user.id, { badges: [...user.badges, badge] });
-            await logActivity('BADGE_EARNED', { userId: user.id, badge });
+            const newBadges = [...user.badges, badge];
+            await db.users.update(user.id, { badges: newBadges });
+            await logActivity('BADGE_EARNED', { userId: user.id, badge, badges: newBadges });
             return true;
         }
     } catch (error) {
@@ -153,7 +199,7 @@ export const addBadge = async (badge: string) => {
 export const toggleLanguage = async (lang: string) => {
   const userId = parseInt(localStorage.getItem('padho_user_id') || '0');
   if (userId) {
-    await db.users.update(userId, { language: lang });
+    await updateUser(userId, { language: lang });
     return lang;
   }
   return 'en';
