@@ -1,9 +1,9 @@
-
 import React, { useState, useEffect } from 'react';
 import { GoogleLogin } from '@react-oauth/google';
 import { jwtDecode } from 'jwt-decode';
-import { db, findUserByEmail, registerUserWithGoogle, verifyPin, createGuestAccount } from '../db';
+import { findUserByEmail, registerUserWithGoogle, verifyPin, createGuestAccount } from '../db';
 import { loginUser } from '../services/authService';
+import { checkSyncStatus } from '../services/networkSim';
 import { Lock, ShieldCheck, AlertCircle, Loader2, XCircle, UserCircle } from 'lucide-react';
 
 interface Props {
@@ -21,7 +21,6 @@ const GoogleAuth: React.FC<Props> = ({ onLoginSuccess }) => {
   const [pin, setPin] = useState('');
   const [confirmPin, setConfirmPin] = useState('');
 
-  // Auto-clear error after 5 seconds
   useEffect(() => {
     if (error) {
       const timer = setTimeout(() => setError(''), 5000);
@@ -47,12 +46,13 @@ const GoogleAuth: React.FC<Props> = ({ onLoginSuccess }) => {
       
       if (!email) throw new Error("Email not found in Google account.");
 
+      // Check both local DB and Supabase via db.ts wrapper
       const existingUser = await findUserByEmail(email);
 
       if (existingUser) {
         setTempUser({ name: existingUser.name, email: existingUser.email! });
         setStep('ENTER_PIN');
-        setPin(''); // Ensure PIN is clear
+        setPin(''); 
       } else {
         setTempUser({ name: name || 'Student', email });
         setStep('SET_PIN');
@@ -77,6 +77,7 @@ const GoogleAuth: React.FC<Props> = ({ onLoginSuccess }) => {
         const id = await createGuestAccount();
         if (id) {
             loginUser(id);
+            if (navigator.onLine) checkSyncStatus();
             onLoginSuccess();
         }
     } catch (e) {
@@ -94,9 +95,13 @@ const GoogleAuth: React.FC<Props> = ({ onLoginSuccess }) => {
 
     setLoading(true);
     try {
+      // Registers locally and syncs to Supabase immediately
       const id = await registerUserWithGoogle(tempUser.name, tempUser.email, pin);
       // @ts-ignore
       loginUser(id);
+      
+      if (navigator.onLine) checkSyncStatus();
+      
       onLoginSuccess();
     } catch (e) {
       console.error(e);
@@ -120,9 +125,10 @@ const GoogleAuth: React.FC<Props> = ({ onLoginSuccess }) => {
         const isValid = await verifyPin(pin, user.pin);
         if (isValid) {
           loginUser(user.id!);
+          if (navigator.onLine) checkSyncStatus();
           onLoginSuccess();
         } else {
-          setPin(''); // Clear input for retry
+          setPin('');
           showError("Incorrect PIN. Please try again.");
         }
       } else {
@@ -139,7 +145,6 @@ const GoogleAuth: React.FC<Props> = ({ onLoginSuccess }) => {
 
   return (
     <div className="w-full relative">
-      {/* Error Toast */}
       {error && (
         <div className="absolute -top-16 left-0 right-0 mx-auto bg-red-50 text-red-600 p-3 rounded-xl text-xs font-bold mb-6 flex items-center justify-between shadow-sm animate-in slide-in-from-top duration-300 z-50 border border-red-100">
           <div className="flex items-center gap-2">
@@ -176,7 +181,6 @@ const GoogleAuth: React.FC<Props> = ({ onLoginSuccess }) => {
              SECURE LOGIN • PRIVACY PROTECTED
           </div>
 
-          {/* Guest Login Button */}
           <button 
              onClick={handleGuestLogin}
              disabled={loading}
@@ -255,7 +259,7 @@ const GoogleAuth: React.FC<Props> = ({ onLoginSuccess }) => {
                 onChange={(e) => {
                     const val = e.target.value.replace(/\D/g, '').slice(0, 4);
                     setPin(val);
-                    if (val.length === 0) setError(''); // Clear error when typing starts
+                    if (val.length === 0) setError(''); 
                 }}
                 className={`w-full text-center text-4xl font-black tracking-[0.5em] py-4 border-2 rounded-2xl focus:border-blue-500 focus:ring-0 outline-none text-gray-800 placeholder-gray-200 transition-colors ${error ? 'border-red-300 bg-red-50 animate-pulse' : 'border-gray-100'}`}
                 placeholder="••••"

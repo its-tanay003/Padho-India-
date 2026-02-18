@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import App from './App';
+import { LanguageProvider } from './contexts/LanguageContext';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -12,7 +13,9 @@ const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
     <GoogleOAuthProvider clientId="224866535963-vegeqokq4jocicak4ngcbfegq1gp446d.apps.googleusercontent.com">
-      <App />
+      <LanguageProvider>
+        <App />
+      </LanguageProvider>
     </GoogleOAuthProvider>
   </React.StrictMode>
 );

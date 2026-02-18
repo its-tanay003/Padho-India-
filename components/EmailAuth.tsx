@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { findUserByEmail, registerUserManual, verifyPin } from '../db';
 import { loginUser } from '../services/authService';
+import { checkSyncStatus } from '../services/networkSim';
 import { Mail, Lock, User, ArrowRight, Loader2, AlertCircle, CheckCircle } from 'lucide-react';
 
 interface Props {
@@ -42,6 +43,8 @@ const EmailAuth: React.FC<Props> = ({ onLoginSuccess, onSwitchToGoogle }) => {
             if (isValid) {
                 // @ts-ignore
                 loginUser(user.id);
+                // Ensure cloud data is fresh if online
+                if (navigator.onLine) checkSyncStatus();
                 onLoginSuccess();
             } else {
                 showError("Incorrect PIN.");
@@ -74,6 +77,10 @@ const EmailAuth: React.FC<Props> = ({ onLoginSuccess, onSwitchToGoogle }) => {
         const id = await registerUserManual(name, email, pin);
         // @ts-ignore
         loginUser(id);
+        
+        // Force sync check to ensure data is in cloud even if immediate sync in db.ts failed silently
+        if (navigator.onLine) checkSyncStatus();
+        
         onLoginSuccess();
     } catch (err) {
         console.error(err);

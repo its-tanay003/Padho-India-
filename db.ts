@@ -1,4 +1,3 @@
-
 import Dexie, { type Table } from 'dexie';
 import { User, Course, Module, TeacherUpload, SyncLog } from './types';
 import { getLevelInfo } from './gamification';
@@ -13,7 +12,6 @@ export class EduDatabase extends Dexie {
 
   constructor() {
     super('PadhoIndiaDB');
-    // @ts-ignore
     this.version(7).stores({
       users: '++id, phoneNumber, email, name, role',
       courses: '++id, title, subject',
@@ -46,12 +44,11 @@ export const findUserByEmail = async (email: string) => {
   // 1. Try Local First (Offline First)
   let user = await db.users.where('email').equals(email).first();
   
-  // 2. If not found and online, Try Cloud (Sync/Restore)
+  // 2. If not found locally but online, fetch from Supabase
   if (!user && navigator.onLine) {
      try {
          const { data, error } = await supabase.from('users').select('*').eq('email', email).single();
          if (data && !error) {
-            // Map Cloud DB columns to Local DB types
             const remoteUser: User = {
                 name: data.name,
                 email: data.email,
@@ -70,10 +67,9 @@ export const findUserByEmail = async (email: string) => {
                 showDailyGyan: data.show_daily_gyan
             };
             
-            // Hydrate Local DB
+            // Save to local IndexedDB for future offline access
             const id = await db.users.add(remoteUser);
             user = { ...remoteUser, id: id as number };
-            console.log("User restored from Cloud");
          }
      } catch (e) {
          console.warn("Cloud fetch failed", e);
@@ -84,47 +80,93 @@ export const findUserByEmail = async (email: string) => {
 
 export const updateUser = async (id: number, updates: Partial<User>) => {
   await db.users.update(id, updates);
-  // Log for Sync
   await logActivity('USER_UPDATE', { userId: id, updates });
 };
 
 export const registerUserWithGoogle = async (name: string, email: string, pin: string) => {
   const hashedPin = await hashPin(pin);
-  const id = await db.users.add({
+  const newUser = {
     name,
     email,
     pin: hashedPin,
-    role: 'student',
-    grade: '10', // Default
+    role: 'student' as const,
+    grade: '10', 
     xp: 0,
     level: 1,
     streak: 1,
     badges: ['New Explorer'],
     quizzesPassed: 0,
     language: 'en'
-  });
-  // Log specifically as REGISTER so we know to INSERT vs UPDATE
-  await logActivity('USER_REGISTERED_GOOGLE', { id, name, email, pin: hashedPin });
+  };
+
+  const id = await db.users.add(newUser);
+
+  // Sync to Supabase immediately if online
+  if (navigator.onLine) {
+      try {
+          await supabase.from('users').upsert({
+            email: newUser.email,
+            name: newUser.name,
+            pin: newUser.pin,
+            role: newUser.role,
+            grade: newUser.grade,
+            xp: newUser.xp,
+            level: newUser.level,
+            streak: newUser.streak,
+            badges: newUser.badges,
+            quizzes_passed: newUser.quizzesPassed,
+            language: newUser.language
+          }, { onConflict: 'email' });
+      } catch (e) {
+          console.warn("Immediate Supabase sync failed", e);
+      }
+  } else {
+      await logActivity('USER_REGISTERED_GOOGLE', { id, ...newUser });
+  }
+
   return id;
 };
 
 export const registerUserManual = async (name: string, email: string, pin: string) => {
   const hashedPin = await hashPin(pin);
-  const id = await db.users.add({
+  const newUser = {
     name,
     email,
     pin: hashedPin,
-    role: 'student',
-    grade: '10', // Default
+    role: 'student' as const,
+    grade: '10',
     xp: 0,
     level: 1,
     streak: 1,
     badges: ['New Explorer'],
     quizzesPassed: 0,
     language: 'en'
-  });
-  // Log specifically as REGISTER EMAIL so we know to INSERT vs UPDATE
-  await logActivity('USER_REGISTERED_EMAIL', { id, name, email, pin: hashedPin });
+  };
+
+  const id = await db.users.add(newUser);
+
+  if (navigator.onLine) {
+      try {
+          await supabase.from('users').upsert({
+            email: newUser.email,
+            name: newUser.name,
+            pin: newUser.pin,
+            role: newUser.role,
+            grade: newUser.grade,
+            xp: newUser.xp,
+            level: newUser.level,
+            streak: newUser.streak,
+            badges: newUser.badges,
+            quizzes_passed: newUser.quizzesPassed,
+            language: newUser.language
+          }, { onConflict: 'email' });
+      } catch (e) {
+          console.warn("Immediate Supabase sync failed", e);
+      }
+  } else {
+      await logActivity('USER_REGISTERED_EMAIL', { id, ...newUser });
+  }
+  
   return id;
 };
 
@@ -132,18 +174,16 @@ export const createGuestAccount = async () => {
   const email = 'guest@padhoindia.com';
   const existing = await findUserByEmail(email);
   if (existing) return existing.id!;
-  
-  // Create with default PIN 0000
   return await registerUserWithGoogle('Guest Student', email, '0000');
 };
 
-export const logActivity = async (action: string, data: any) => {
+export const logActivity = async (action: string, data: any, isSynced: boolean = false) => {
   try {
     await db.sync_logs.add({
       action,
       data,
       timestamp: Date.now(),
-      isSynced: false
+      isSynced: isSynced
     });
   } catch (e) {
     console.error("Failed to log activity", e);
@@ -181,84 +221,12 @@ export const addXP = async (amount: number) => {
   return null;
 };
 
-export const incrementQuizCount = async () => {
-    try {
-        const userId = parseInt(localStorage.getItem('padho_user_id') || '0');
-        let user;
-        if (userId) user = await db.users.get(userId);
-        else user = await db.users.orderBy('id').first();
-
-        if (user && user.id) {
-            await db.users.update(user.id, { quizzesPassed: (user.quizzesPassed || 0) + 1 });
-            await logActivity('QUIZ_PASSED', { userId: user.id, totalPassed: (user.quizzesPassed || 0) + 1 });
-        }
-    } catch (error) {
-        console.error("Failed to increment quiz count:", error);
-    }
-}
-
-export const addBadge = async (badge: string) => {
-    try {
-        const userId = parseInt(localStorage.getItem('padho_user_id') || '0');
-        let user;
-        if (userId) user = await db.users.get(userId);
-        else user = await db.users.orderBy('id').first();
-
-        if (user && user.id && !user.badges.includes(badge)) {
-            const newBadges = [...user.badges, badge];
-            await db.users.update(user.id, { badges: newBadges });
-            await logActivity('BADGE_EARNED', { userId: user.id, badge, badges: newBadges });
-            return true;
-        }
-    } catch (error) {
-        console.error("Failed to add badge:", error);
-    }
-    return false;
-}
-
-export const toggleLanguage = async (lang: string) => {
-  const userId = parseInt(localStorage.getItem('padho_user_id') || '0');
-  if (userId) {
-    await updateUser(userId, { language: lang });
-    return lang;
-  }
-  return 'en';
-};
-
-export const logModuleCompletion = async (moduleId: number, courseId: number, type: string, title: string) => {
-    await logActivity('MODULE_COMPLETED', { moduleId, courseId, type, title });
-};
-
-export const captureUnloggedCompletions = async () => {
-    try {
-        // Find modules marked as completed
-        // Fix: Use filter() since 'isCompleted' is not an indexed property
-        const completedModules = await db.modules.filter(m => m.isCompleted === true).toArray();
-        
-        // Find existing completion logs to avoid duplicates
-        const logs = await db.sync_logs.where('action').equals('MODULE_COMPLETED').toArray();
-        const loggedIds = new Set(logs.map(l => l.data.moduleId));
-
-        let count = 0;
-        for (const mod of completedModules) {
-            if (mod.id && !loggedIds.has(mod.id)) {
-                await logModuleCompletion(mod.id, mod.courseId, mod.type, mod.title);
-                count++;
-            }
-        }
-        if (count > 0) console.log(`[Sync] Backfilled ${count} completion logs.`);
-    } catch (e) {
-        console.error("Error capturing unlogged completions:", e);
-    }
-};
-
-// --- Seeder Function ---
-
 export const seedDatabase = async () => {
   try {
-    // Transaction ensures consistency when checking and adding courses
-    // Fix: cast db to any to resolve missing 'transaction' property TypeScript error
-    await (db as any).transaction('rw', db.courses, db.modules, async () => {
+    // @ts-ignore
+    await db.transaction('rw', db.courses, db.modules, async () => {
+      if ((await db.courses.count()) > 0) return; 
+
       const seedCourses = [
         {
           title: 'Vedic Math',
@@ -294,7 +262,7 @@ export const seedDatabase = async () => {
           subject: 'Science',
           description: 'Understanding the world around us.',
           thumbnail: 'https://picsum.photos/400/200?random=2',
-          isDownloaded: true, // Simulated download
+          isDownloaded: true, 
           language: 'en',
           totalModules: 1,
           completedModules: 0,
@@ -321,7 +289,7 @@ export const seedDatabase = async () => {
             {
               title: 'Present Tense',
               audioUrl: 'sim_grammar_1.mp3',
-              type: 'video', // Using video type for simplicity in UI, though audioUrl is present
+              type: 'video', 
               isCompleted: false,
               content: 'Talking about daily habits.'
             }
@@ -330,34 +298,15 @@ export const seedDatabase = async () => {
       ];
 
       for (const courseData of seedCourses) {
-        // Robust check: Does this course title already exist?
-        const existingCourse = await db.courses.where('title').equals(courseData.title).first();
-
-        if (!existingCourse) {
-          // Destructure modules out, add course first to get ID
           const { modules, ...courseInfo } = courseData;
           // @ts-ignore
           const courseId = await db.courses.add(courseInfo);
-
-          // Prepare modules with the new courseId
           const modulesWithId = modules.map(m => ({ ...m, courseId: courseId as number }));
-          
           // @ts-ignore
           await db.modules.bulkAdd(modulesWithId);
-          console.log(`Seeded course: ${courseInfo.title}`);
-        } else {
-            // Optional: Check if modules are missing for existing course (partial seed recovery)
-            const modulesCount = await db.modules.where('courseId').equals(existingCourse.id!).count();
-            if (modulesCount === 0 && courseData.modules.length > 0) {
-                 console.log(`Recovering modules for course: ${existingCourse.title}`);
-                 const modulesWithId = courseData.modules.map(m => ({ ...m, courseId: existingCourse.id! }));
-                 // @ts-ignore
-                 await db.modules.bulkAdd(modulesWithId);
-            }
-        }
       }
+      console.log("Database Seeded");
     });
-
   } catch (e) {
       console.error("Database Seeding Error", e);
   }

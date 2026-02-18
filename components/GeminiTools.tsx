@@ -259,7 +259,7 @@ const GeminiTools: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-full bg-[#FFF5F0]"> {/* Warm background for AI Lab */}
+    <div className="flex flex-col h-full bg-[#FFF5F0] rounded-2xl overflow-hidden shadow-sm border border-orange-50/50">
       
       {/* Hidden File Input */}
       <input
@@ -273,204 +273,215 @@ const GeminiTools: React.FC = () => {
       />
 
       {/* AI Lab Header */}
-      <div className="px-4 pt-2 pb-2 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-b-3xl shadow-lg z-10 shrink-0">
-          <div className="flex items-center gap-3 mb-2">
-             <button onClick={() => navigate('/')} className="p-1 hover:bg-white/20 rounded-full"><ChevronLeft /></button>
+      <div className="px-4 py-3 bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-lg z-10 shrink-0">
+          <div className="flex items-center gap-3">
+             <button onClick={() => navigate('/')} className="p-1 hover:bg-white/20 rounded-full md:hidden"><ChevronLeft /></button>
              <div>
-                <h1 className="font-black text-xl">Mitra AI Lab</h1>
+                <h1 className="font-black text-xl flex items-center gap-2">
+                    <BrainCircuit size={24} className="text-white/90" />
+                    Mitra AI Lab
+                </h1>
                 <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest opacity-90">
-                    <span className="flex items-center gap-1"><div className="w-1.5 h-1.5 bg-green-300 rounded-full animate-pulse"></div> Always Online</span>
-                    <span>•</span>
-                    <span>Voice Powered</span>
+                    <span className="flex items-center gap-1"><div className="w-1.5 h-1.5 bg-green-300 rounded-full animate-pulse"></div> Online</span>
+                    <span className="hidden sm:inline">•</span>
+                    <span className="hidden sm:inline">Voice Powered</span>
                 </div>
              </div>
              <div className="ml-auto flex items-center gap-2">
                  <button onClick={handleSelectKey} className="bg-white/20 p-2 rounded-xl hover:bg-white/30 transition-colors" title="Select API Key">
-                     <Key size={20} />
+                     <Key size={18} />
                  </button>
-                 <div className="bg-white/20 p-2 rounded-xl">
-                     <BrainCircuit size={20} />
-                 </div>
              </div>
           </div>
       </div>
 
       {/* Chat Area */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {messages.length === 0 && (
-            <div className="flex flex-col items-center justify-center h-full space-y-8 p-6 animate-in fade-in zoom-in duration-500">
-                {/* Hero Icon */}
-                <div className="relative">
-                    <div className="absolute inset-0 bg-gradient-to-tr from-orange-300 to-pink-300 rounded-[2rem] opacity-30 blur-2xl animate-pulse"></div>
-                    <div className="bg-white p-6 rounded-[2.5rem] shadow-xl shadow-orange-100/50 relative z-10 border border-white/50">
-                        <img src="https://api.dicebear.com/7.x/bottts/svg?seed=Mitra" alt="Mitra" className="w-24 h-24" />
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gradient-to-b from-[#FFF5F0] to-white">
+        <div className="max-w-4xl mx-auto w-full space-y-4">
+            {messages.length === 0 && (
+                <div className="flex flex-col items-center justify-center py-10 space-y-8 animate-in fade-in zoom-in duration-500">
+                    {/* Hero Icon */}
+                    <div className="relative">
+                        <div className="absolute inset-0 bg-gradient-to-tr from-orange-300 to-pink-300 rounded-[2rem] opacity-30 blur-2xl animate-pulse"></div>
+                        <div className="bg-white p-6 rounded-[2.5rem] shadow-xl shadow-orange-100/50 relative z-10 border border-white/50">
+                            <img src="https://api.dicebear.com/7.x/bottts/svg?seed=Mitra" alt="Mitra" className="w-24 h-24" />
+                        </div>
+                    </div>
+                    
+                    <div className="text-center space-y-2 max-w-md">
+                        <h3 className="text-2xl font-black text-gray-800 tracking-tight">Namaste! I'm Mitra.</h3>
+                        <p className="text-gray-500 font-medium">Your creative AI companion. <br/>What shall we create today?</p>
+                    </div>
+
+                    {/* Suggestion Grid */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-lg px-4">
+                        <button 
+                            onClick={() => { setMode('chat'); handleSend("How does photosynthesis work? Explain it simply."); }}
+                            className="bg-white p-4 rounded-2xl shadow-sm hover:shadow-lg border border-orange-50 hover:border-orange-200 transition-all text-left group active:scale-95 flex items-center gap-3"
+                        >
+                            <div className="bg-green-100 w-10 h-10 rounded-full flex items-center justify-center text-green-600 group-hover:scale-110 transition-transform shrink-0">
+                                <Leaf size={18} />
+                            </div>
+                            <div>
+                                <span className="font-bold text-gray-700 text-sm block">Photosynthesis?</span>
+                                <p className="text-[10px] text-gray-400">Ask a question</p>
+                            </div>
+                        </button>
+
+                        <button 
+                            onClick={() => { setMode('generate_image'); handleSend("A majestic tiger walking in the Indian jungle, detailed, photorealistic"); }}
+                            className="bg-white p-4 rounded-2xl shadow-sm hover:shadow-lg border border-orange-50 hover:border-orange-200 transition-all text-left group active:scale-95 flex items-center gap-3"
+                        >
+                            <div className="bg-orange-100 w-10 h-10 rounded-full flex items-center justify-center text-orange-600 group-hover:scale-110 transition-transform shrink-0">
+                                <ImageIcon size={18} />
+                            </div>
+                            <div>
+                                <span className="font-bold text-gray-700 text-sm block">Tiger Image</span>
+                                <p className="text-[10px] text-gray-400">Generate art</p>
+                            </div>
+                        </button>
+
+                        <button 
+                            onClick={() => { setMode('tts'); handleSend("The woods are lovely, dark and deep, But I have promises to keep, And miles to go before I sleep."); }}
+                            className="bg-white p-4 rounded-2xl shadow-sm hover:shadow-lg border border-orange-50 hover:border-orange-200 transition-all text-left group active:scale-95 flex items-center gap-3"
+                        >
+                            <div className="bg-purple-100 w-10 h-10 rounded-full flex items-center justify-center text-purple-600 group-hover:scale-110 transition-transform shrink-0">
+                                <Volume2 size={18} />
+                            </div>
+                            <div>
+                                <span className="font-bold text-gray-700 text-sm block">Poem to Speech</span>
+                                <p className="text-[10px] text-gray-400">Listen to audio</p>
+                            </div>
+                        </button>
+
+                        <button 
+                            onClick={() => { setMode('generate_video'); handleSend("A peacock dancing in the rain"); }}
+                            className="bg-white p-4 rounded-2xl shadow-sm hover:shadow-lg border border-orange-50 hover:border-orange-200 transition-all text-left group active:scale-95 flex items-center gap-3"
+                        >
+                            <div className="bg-red-100 w-10 h-10 rounded-full flex items-center justify-center text-red-600 group-hover:scale-110 transition-transform shrink-0">
+                                <Video size={18} />
+                            </div>
+                            <div>
+                                <span className="font-bold text-gray-700 text-sm block">Peacock Video</span>
+                                <p className="text-[10px] text-gray-400">Create video</p>
+                            </div>
+                        </button>
                     </div>
                 </div>
-                
-                <div className="text-center space-y-2">
-                    <h3 className="text-2xl font-black text-gray-800 tracking-tight">Namaste! I'm Mitra.</h3>
-                    <p className="text-gray-500 font-medium">Your creative AI companion. <br/>What shall we create today?</p>
-                </div>
+            )}
 
-                {/* Suggestion Grid */}
-                <div className="grid grid-cols-2 gap-3 w-full max-w-sm">
-                    <button 
-                        onClick={() => { setMode('chat'); handleSend("How does photosynthesis work? Explain it simply."); }}
-                        className="bg-white p-4 rounded-2xl shadow-sm hover:shadow-lg border border-orange-50 hover:border-orange-200 transition-all text-left group active:scale-95"
-                    >
-                        <div className="bg-green-100 w-10 h-10 rounded-full flex items-center justify-center text-green-600 mb-2 group-hover:scale-110 transition-transform">
-                            <Leaf size={18} />
+            {messages.map((m, i) => (
+                <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2`}>
+                    {m.role === 'model' && (
+                        <div className="w-8 h-8 rounded-full bg-white border border-gray-100 flex items-center justify-center mr-2 shadow-sm shrink-0 mt-2">
+                            <Sparkles size={14} className="text-orange-500" />
                         </div>
-                        <span className="font-bold text-gray-700 text-sm">Photosynthesis?</span>
-                        <p className="text-[10px] text-gray-400 mt-1">Ask a question</p>
-                    </button>
-
-                    <button 
-                        onClick={() => { setMode('generate_image'); handleSend("A majestic tiger walking in the Indian jungle, detailed, photorealistic"); }}
-                        className="bg-white p-4 rounded-2xl shadow-sm hover:shadow-lg border border-orange-50 hover:border-orange-200 transition-all text-left group active:scale-95"
-                    >
-                        <div className="bg-orange-100 w-10 h-10 rounded-full flex items-center justify-center text-orange-600 mb-2 group-hover:scale-110 transition-transform">
-                            <ImageIcon size={18} />
-                        </div>
-                        <span className="font-bold text-gray-700 text-sm">Tiger Image</span>
-                        <p className="text-[10px] text-gray-400 mt-1">Generate art</p>
-                    </button>
-
-                     <button 
-                        onClick={() => { setMode('tts'); handleSend("The woods are lovely, dark and deep, But I have promises to keep, And miles to go before I sleep."); }}
-                        className="bg-white p-4 rounded-2xl shadow-sm hover:shadow-lg border border-orange-50 hover:border-orange-200 transition-all text-left group active:scale-95"
-                    >
-                        <div className="bg-purple-100 w-10 h-10 rounded-full flex items-center justify-center text-purple-600 mb-2 group-hover:scale-110 transition-transform">
-                            <Volume2 size={18} />
-                        </div>
-                        <span className="font-bold text-gray-700 text-sm">Poem to Speech</span>
-                        <p className="text-[10px] text-gray-400 mt-1">Listen to audio</p>
-                    </button>
-
-                     <button 
-                        onClick={() => { setMode('generate_video'); handleSend("A peacock dancing in the rain"); }}
-                        className="bg-white p-4 rounded-2xl shadow-sm hover:shadow-lg border border-orange-50 hover:border-orange-200 transition-all text-left group active:scale-95"
-                    >
-                        <div className="bg-red-100 w-10 h-10 rounded-full flex items-center justify-center text-red-600 mb-2 group-hover:scale-110 transition-transform">
-                            <Video size={18} />
-                        </div>
-                        <span className="font-bold text-gray-700 text-sm">Peacock Video</span>
-                        <p className="text-[10px] text-gray-400 mt-1">Create video</p>
-                    </button>
-                </div>
-            </div>
-        )}
-
-        {messages.map((m, i) => (
-            <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2`}>
-                {m.role === 'model' && (
-                    <div className="w-8 h-8 rounded-full bg-white border border-gray-100 flex items-center justify-center mr-2 shadow-sm shrink-0">
-                        <Sparkles size={14} className="text-orange-500" />
+                    )}
+                    <div className={`max-w-[85%] md:max-w-[70%] p-4 rounded-2xl text-sm shadow-sm leading-relaxed ${
+                        m.role === 'user' 
+                        ? 'bg-orange-500 text-white rounded-tr-sm' 
+                        : 'bg-white text-gray-800 border border-gray-100 rounded-tl-sm'
+                    }`}>
+                        {renderMessageContent(m)}
                     </div>
-                )}
-                <div className={`max-w-[80%] p-4 rounded-2xl text-sm shadow-sm ${
-                    m.role === 'user' 
-                    ? 'bg-orange-500 text-white rounded-tr-sm' 
-                    : 'bg-white text-gray-800 border border-gray-100 rounded-tl-sm'
-                }`}>
-                    {renderMessageContent(m)}
                 </div>
-            </div>
-        ))}
-        
-        {(loading || isTranscribing) && (
-            <div className="flex justify-start items-center gap-2 ml-10">
-                <div className="bg-white px-4 py-2 rounded-full border border-orange-100 flex items-center gap-2 shadow-sm">
-                   <div className="flex gap-1">
-                       <div className="w-2 h-2 bg-orange-400 rounded-full animate-bounce"></div>
-                       <div className="w-2 h-2 bg-orange-400 rounded-full animate-bounce delay-75"></div>
-                       <div className="w-2 h-2 bg-orange-400 rounded-full animate-bounce delay-150"></div>
-                   </div>
-                   <span className="text-xs font-bold text-gray-500">{isTranscribing ? "Listening..." : "Thinking..."}</span>
+            ))}
+            
+            {(loading || isTranscribing) && (
+                <div className="flex justify-start items-center gap-2 ml-10">
+                    <div className="bg-white px-4 py-2 rounded-full border border-orange-100 flex items-center gap-2 shadow-sm">
+                    <div className="flex gap-1">
+                        <div className="w-2 h-2 bg-orange-400 rounded-full animate-bounce"></div>
+                        <div className="w-2 h-2 bg-orange-400 rounded-full animate-bounce delay-75"></div>
+                        <div className="w-2 h-2 bg-orange-400 rounded-full animate-bounce delay-150"></div>
+                    </div>
+                    <span className="text-xs font-bold text-gray-500">{isTranscribing ? "Listening..." : "Thinking..."}</span>
+                    </div>
                 </div>
-            </div>
-        )}
-        <div ref={chatEndRef} />
+            )}
+            <div ref={chatEndRef} />
+        </div>
       </div>
 
       {/* Input Area */}
-      <div className="bg-white/80 backdrop-blur-md p-4 rounded-t-3xl shadow-[0_-5px_30px_rgba(0,0,0,0.05)] border-t border-white/50 shrink-0">
-        
-        {/* File Preview Card */}
-        {selectedFile && (
-           <div className="flex items-center gap-3 bg-white p-2 rounded-xl border border-gray-100 mb-2 w-fit shadow-sm animate-in slide-in-from-bottom-2 relative z-20">
-               {selectedFile.type.startsWith('image/') ? (
-                   <img src={URL.createObjectURL(selectedFile)} alt="Preview" className="w-10 h-10 rounded-lg object-cover bg-gray-100" />
-               ) : (
-                   <div className="w-10 h-10 bg-red-50 rounded-lg flex items-center justify-center text-red-500">
-                       <FileText size={20} />
-                   </div>
-               )}
-               <div className="flex flex-col">
-                   <span className="text-xs font-bold text-gray-700 max-w-[150px] truncate">{selectedFile.name}</span>
-                   <span className="text-[10px] text-gray-400 font-medium">{(selectedFile.size / 1024).toFixed(1)} KB</span>
-               </div>
-               <button onClick={() => setSelectedFile(null)} className="p-1 hover:bg-gray-100 rounded-full text-gray-400 hover:text-red-500 transition-colors">
-                   <X size={16} />
-               </button>
-           </div>
-        )}
-
-        {/* Context Bar */}
-        <div className="flex gap-2 mb-3 overflow-x-auto pb-1 no-scrollbar justify-center">
-            <button onClick={() => setMode('chat')} className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 ${mode === 'chat' ? 'bg-orange-500 text-white shadow-md shadow-orange-200' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
-                <MessageSquare size={12} /> Chat
-            </button>
-            <button onClick={() => setMode('generate_image')} className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 ${mode === 'generate_image' ? 'bg-purple-500 text-white shadow-md shadow-purple-200' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
-                <ImageIcon size={12} /> Visual
-            </button>
-            <button onClick={() => setMode('tts')} className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 ${mode === 'tts' ? 'bg-blue-500 text-white shadow-md shadow-blue-200' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
-                <Volume2 size={12} /> Speak
-            </button>
-             <button onClick={() => setMode('generate_video')} className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 ${mode === 'generate_video' ? 'bg-red-500 text-white shadow-md shadow-red-200' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
-                <Video size={12} /> Video
-            </button>
-        </div>
-
-        <div className="relative group z-20">
-            {/* Input Glow */}
-            <div className="absolute -inset-0.5 bg-gradient-to-r from-orange-300 to-pink-300 rounded-3xl blur opacity-0 group-hover:opacity-30 group-focus-within:opacity-50 transition-opacity duration-500"></div>
-            
-            <input 
-                type="text" 
-                value={input} 
-                onChange={(e) => setInput(e.target.value)} 
-                onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                placeholder={isRecording ? "Listening..." : mode === 'generate_image' ? "Describe image to generate..." : "Ask Mitra anything..."}
-                disabled={isRecording || isTranscribing}
-                className="w-full relative bg-white/80 border-2 border-orange-50 rounded-3xl pl-24 pr-12 py-4 font-medium text-gray-700 placeholder-gray-400 transition-all duration-300 focus:bg-white focus:border-orange-300 focus:ring-4 focus:ring-orange-100 focus:shadow-xl focus:shadow-orange-100/50 hover:border-orange-200 hover:shadow-md hover:bg-white"
-            />
-            
-            {/* Left Icons (Attach & Mic) */}
-            <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-2 z-10">
-                <button 
-                    onClick={() => fileInputRef.current?.click()}
-                    className="p-2 text-gray-400 hover:text-orange-500 hover:bg-orange-50 rounded-xl transition-all"
-                    title="Attach file (Image/PDF)"
-                >
-                    <Paperclip size={20} />
+      <div className="bg-white/80 backdrop-blur-md p-4 shadow-[0_-5px_30px_rgba(0,0,0,0.05)] border-t border-white/50 shrink-0">
+        <div className="max-w-4xl mx-auto w-full">
+            {/* File Preview Card */}
+            {selectedFile && (
+            <div className="flex items-center gap-3 bg-white p-2 rounded-xl border border-gray-100 mb-2 w-fit shadow-sm animate-in slide-in-from-bottom-2 relative z-20">
+                {selectedFile.type.startsWith('image/') ? (
+                    <img src={URL.createObjectURL(selectedFile)} alt="Preview" className="w-10 h-10 rounded-lg object-cover bg-gray-100" />
+                ) : (
+                    <div className="w-10 h-10 bg-red-50 rounded-lg flex items-center justify-center text-red-500">
+                        <FileText size={20} />
+                    </div>
+                )}
+                <div className="flex flex-col">
+                    <span className="text-xs font-bold text-gray-700 max-w-[150px] truncate">{selectedFile.name}</span>
+                    <span className="text-[10px] text-gray-400 font-medium">{(selectedFile.size / 1024).toFixed(1)} KB</span>
+                </div>
+                <button onClick={() => setSelectedFile(null)} className="p-1 hover:bg-gray-100 rounded-full text-gray-400 hover:text-red-500 transition-colors">
+                    <X size={16} />
                 </button>
-                <button 
-                    onClick={handleMicToggle}
-                    className={`p-2 rounded-xl transition-all ${isRecording ? 'bg-red-500 text-white animate-pulse shadow-lg shadow-red-300' : 'text-gray-400 hover:text-orange-500 hover:bg-orange-50'}`}
-                >
-                    {isRecording ? <StopCircle size={20} /> : <Mic size={20} />}
+            </div>
+            )}
+
+            {/* Context Bar */}
+            <div className="flex gap-2 mb-3 overflow-x-auto pb-1 no-scrollbar justify-center">
+                <button onClick={() => setMode('chat')} className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 ${mode === 'chat' ? 'bg-orange-500 text-white shadow-md shadow-orange-200' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
+                    <MessageSquare size={12} /> Chat
+                </button>
+                <button onClick={() => setMode('generate_image')} className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 ${mode === 'generate_image' ? 'bg-purple-500 text-white shadow-md shadow-purple-200' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
+                    <ImageIcon size={12} /> Visual
+                </button>
+                <button onClick={() => setMode('tts')} className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 ${mode === 'tts' ? 'bg-blue-500 text-white shadow-md shadow-blue-200' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
+                    <Volume2 size={12} /> Speak
+                </button>
+                <button onClick={() => setMode('generate_video')} className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 ${mode === 'generate_video' ? 'bg-red-500 text-white shadow-md shadow-red-200' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
+                    <Video size={12} /> Video
                 </button>
             </div>
 
-            {/* Right Icon (Send) */}
-            <button 
-                onClick={() => handleSend()}
-                disabled={!input.trim() && !selectedFile}
-                className={`absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-xl transition-all z-10 ${input.trim() || selectedFile ? 'bg-gradient-to-tr from-orange-500 to-pink-500 text-white shadow-lg shadow-orange-300 transform hover:scale-105 active:scale-95' : 'bg-gray-200 text-gray-400'}`}
-            >
-                <Send size={18} />
-            </button>
+            <div className="relative group z-20">
+                {/* Input Glow */}
+                <div className="absolute -inset-0.5 bg-gradient-to-r from-orange-300 to-pink-300 rounded-3xl blur opacity-0 group-hover:opacity-30 group-focus-within:opacity-50 transition-opacity duration-500"></div>
+                
+                <input 
+                    type="text" 
+                    value={input} 
+                    onChange={(e) => setInput(e.target.value)} 
+                    onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+                    placeholder={isRecording ? "Listening..." : mode === 'generate_image' ? "Describe image to generate..." : "Ask Mitra anything..."}
+                    disabled={isRecording || isTranscribing}
+                    className="w-full relative bg-white/80 border-2 border-orange-50 rounded-3xl pl-24 pr-12 py-4 font-medium text-gray-700 placeholder-gray-400 transition-all duration-300 focus:bg-white focus:border-orange-300 focus:ring-4 focus:ring-orange-100 focus:shadow-xl focus:shadow-orange-100/50 hover:border-orange-200 hover:shadow-md hover:bg-white"
+                />
+                
+                {/* Left Icons (Attach & Mic) */}
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-2 z-10">
+                    <button 
+                        onClick={() => fileInputRef.current?.click()}
+                        className="p-2 text-gray-400 hover:text-orange-500 hover:bg-orange-50 rounded-xl transition-all"
+                        title="Attach file (Image/PDF)"
+                    >
+                        <Paperclip size={20} />
+                    </button>
+                    <button 
+                        onClick={handleMicToggle}
+                        className={`p-2 rounded-xl transition-all ${isRecording ? 'bg-red-500 text-white animate-pulse shadow-lg shadow-red-300' : 'text-gray-400 hover:text-orange-500 hover:bg-orange-50'}`}
+                    >
+                        {isRecording ? <StopCircle size={20} /> : <Mic size={20} />}
+                    </button>
+                </div>
+
+                {/* Right Icon (Send) */}
+                <button 
+                    onClick={() => handleSend()}
+                    disabled={!input.trim() && !selectedFile}
+                    className={`absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-xl transition-all z-10 ${input.trim() || selectedFile ? 'bg-gradient-to-tr from-orange-500 to-pink-500 text-white shadow-lg shadow-orange-300 transform hover:scale-105 active:scale-95' : 'bg-gray-200 text-gray-400'}`}
+                >
+                    <Send size={18} />
+                </button>
+            </div>
         </div>
       </div>
     </div>

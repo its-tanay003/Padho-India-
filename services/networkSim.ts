@@ -64,9 +64,13 @@ export const checkSyncStatus = async (): Promise<void> => {
                     name: data.name,
                     pin: data.pin,
                     role: 'student',
-                    xp: 0,
-                    level: 1,
-                    badges: ['New Explorer']
+                    grade: data.grade || '10',
+                    xp: data.xp || 0,
+                    level: data.level || 1,
+                    streak: data.streak || 1,
+                    badges: data.badges || ['New Explorer'],
+                    quizzes_passed: data.quizzesPassed || 0,
+                    language: data.language || 'en'
                 }, { onConflict: 'email' });
             }
             
