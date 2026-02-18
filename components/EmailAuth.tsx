@@ -3,14 +3,14 @@ import React, { useState } from 'react';
 import { findUserByEmail, registerUserManual, verifyPin } from '../db';
 import { loginUser } from '../services/authService';
 import { checkSyncStatus } from '../services/networkSim';
-import { Mail, Lock, User, ArrowRight, Loader2, AlertCircle, CheckCircle, ShieldCheck } from 'lucide-react';
+import { Mail, Lock, User, ArrowRight, Loader2, AlertCircle, CheckCircle, ShieldCheck, HelpCircle } from 'lucide-react';
 
 interface Props {
   onLoginSuccess: () => void;
   onSwitchToGoogle: () => void;
 }
 
-type Step = 'EMAIL' | 'LOGIN_PIN' | 'SIGNUP_DETAILS';
+type Step = 'EMAIL' | 'LOGIN_PIN' | 'ENTER_NAME' | 'SET_PIN';
 
 const EmailAuth: React.FC<Props> = ({ onLoginSuccess, onSwitchToGoogle }) => {
   const [step, setStep] = useState<Step>('EMAIL');
@@ -42,20 +42,27 @@ const EmailAuth: React.FC<Props> = ({ onLoginSuccess, onSwitchToGoogle }) => {
             setStep('LOGIN_PIN');
             setPin('');
         } else {
-            setStep('SIGNUP_DETAILS');
-            setPin('');
-            setConfirmPin('');
+            setStep('ENTER_NAME');
+            setName('');
         }
     } catch (err) {
         console.error(err);
-        showError("Unable to verify email.");
+        showError("Unable to check email. Please check your connection.");
     } finally {
         setLoading(false);
     }
   };
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleNameSubmit = (e: React.FormEvent) => {
+      e.preventDefault();
+      if (name.trim().length < 2) return showError("Please enter a valid name.");
+      setStep('SET_PIN');
+      setPin('');
+      setConfirmPin('');
+  };
+
+  const handleLogin = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     if (pin.length !== 4) return showError("PIN must be 4 digits.");
 
     setLoading(true);
@@ -73,18 +80,17 @@ const EmailAuth: React.FC<Props> = ({ onLoginSuccess, onSwitchToGoogle }) => {
                 showError("PIN mismatch. Please try again.");
             }
         } else {
-            showError("Account error. Please try again.");
+            showError("Account error. User not found.");
             setStep('EMAIL');
         }
     } catch (err) {
-        showError("Login failed.");
+        showError("Login failed. System error.");
     } finally {
         setLoading(false);
     }
   };
 
-  const handleSignup = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSetPin = async () => {
     if (!name || !pin || !confirmPin) return showError("Please fill in all fields.");
     if (pin.length !== 4) return showError("PIN must be 4 digits.");
     if (pin !== confirmPin) return showError("PINs do not match.");
@@ -98,7 +104,7 @@ const EmailAuth: React.FC<Props> = ({ onLoginSuccess, onSwitchToGoogle }) => {
         onLoginSuccess();
     } catch (err) {
         console.error(err);
-        showError("Registration failed.");
+        showError("Registration failed. Please try again.");
     } finally {
         setLoading(false);
     }
@@ -155,9 +161,99 @@ const EmailAuth: React.FC<Props> = ({ onLoginSuccess, onSwitchToGoogle }) => {
             </form>
         )}
 
-        {/* STEP 2: LOGIN PIN */}
+        {/* STEP 2: ENTER NAME (New User) */}
+        {step === 'ENTER_NAME' && (
+             <form onSubmit={handleNameSubmit} className="space-y-6 animate-in slide-in-from-right">
+                 <div className="text-center mb-6">
+                    <h3 className="font-bold text-gray-800 text-lg">Welcome!</h3>
+                    <p className="text-gray-500 text-sm mt-1">What should we call you?</p>
+                 </div>
+
+                 <div className="space-y-1">
+                    <div className="relative">
+                        <User className="absolute left-3 top-3.5 text-gray-400" size={18} />
+                        <input 
+                            type="text" 
+                            placeholder="Your Name"
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                            className="w-full bg-gray-50 border border-transparent focus:bg-white focus:border-blue-500 rounded-xl pl-10 pr-4 py-3 outline-none text-sm font-medium transition-all"
+                            autoFocus
+                        />
+                    </div>
+                 </div>
+
+                 <button 
+                    type="submit"
+                    disabled={!name.trim()}
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-blue-200 active:scale-95 transition-all flex justify-center items-center gap-2 disabled:opacity-50"
+                >
+                    Next <ArrowRight size={18} />
+                </button>
+                
+                <button type="button" onClick={() => setStep('EMAIL')} className="w-full text-xs font-bold text-gray-400 hover:text-gray-600 uppercase tracking-wider text-center mt-2">
+                    Use different email
+                </button>
+            </form>
+        )}
+
+        {/* STEP 3: SET PIN */}
+        {step === 'SET_PIN' && (
+            <div className="space-y-6 animate-in slide-in-from-right">
+               <div className="text-center">
+                  <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4 text-blue-600 shadow-sm">
+                    <ShieldCheck size={32} />
+                  </div>
+                  <h3 className="font-bold text-xl text-gray-800">Set Security PIN</h3>
+                  <p className="text-sm text-gray-500 mt-1">Create a 4-digit PIN for {name}</p>
+               </div>
+
+               <div className="space-y-4">
+                    <div className="relative">
+                        <input 
+                        type="password" 
+                        inputMode="numeric"
+                        maxLength={4}
+                        value={pin}
+                        onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                        className="w-full text-center text-4xl font-black tracking-[0.5em] py-4 border-2 border-gray-100 rounded-2xl focus:border-blue-500 focus:ring-0 outline-none text-gray-800 placeholder-gray-200 transition-colors"
+                        placeholder="••••"
+                        autoFocus
+                        />
+                        <p className="text-xs text-center text-gray-400 mt-1">Enter PIN</p>
+                    </div>
+                    
+                    <div className="relative">
+                        <input 
+                        type="password" 
+                        inputMode="numeric"
+                        maxLength={4}
+                        value={confirmPin}
+                        onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                        className={`w-full text-center text-xl font-bold tracking-widest py-3 bg-gray-50 border border-transparent rounded-xl focus:bg-white focus:border-blue-200 outline-none transition-colors ${pin && confirmPin && pin !== confirmPin ? 'border-red-300 bg-red-50' : ''}`}
+                        placeholder="Confirm PIN"
+                        />
+                         <p className="text-xs text-center text-gray-400 mt-1">Confirm PIN</p>
+                    </div>
+               </div>
+
+               <button 
+                  onClick={handleSetPin}
+                  disabled={loading || pin.length < 4 || confirmPin.length < 4}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-2xl shadow-xl shadow-blue-200 active:scale-95 transition-all disabled:opacity-50 disabled:shadow-none flex justify-center items-center"
+                >
+                  {loading ? <Loader2 className="animate-spin" /> : "Set PIN & Start Learning"}
+                </button>
+                
+                <button type="button" onClick={() => setStep('ENTER_NAME')} className="w-full text-xs font-bold text-gray-400 hover:text-gray-600 uppercase tracking-wider text-center">
+                    Back
+                </button>
+            </div>
+        )}
+
+        {/* STEP 4: LOGIN PIN */}
         {step === 'LOGIN_PIN' && (
-            <div className="space-y-6">
+            <div className="space-y-6 animate-in slide-in-from-right">
                  <div className="text-center mb-2">
                     <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4 text-blue-600 shadow-sm">
                         <Lock size={32} />
@@ -176,96 +272,31 @@ const EmailAuth: React.FC<Props> = ({ onLoginSuccess, onSwitchToGoogle }) => {
                         onChange={(e) => {
                             const val = e.target.value.replace(/\D/g, '').slice(0, 4);
                             setPin(val);
+                            if (val.length === 0) setError('');
                         }}
-                        className="w-full text-center text-4xl font-black tracking-[0.5em] py-4 border-2 border-gray-100 rounded-2xl focus:border-blue-500 focus:ring-0 outline-none text-gray-800 placeholder-gray-200 transition-colors"
+                        className={`w-full text-center text-4xl font-black tracking-[0.5em] py-4 border-2 rounded-2xl focus:border-blue-500 focus:ring-0 outline-none text-gray-800 placeholder-gray-200 transition-colors ${error ? 'border-red-300 bg-red-50 animate-pulse' : 'border-gray-100'}`}
                         autoFocus
                     />
                  </div>
 
                  <button 
-                    onClick={handleLogin}
+                    onClick={() => handleLogin()}
                     disabled={loading || pin.length < 4}
                     className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-blue-200 active:scale-95 transition-all flex justify-center items-center gap-2 disabled:opacity-50"
                 >
                     {loading ? <Loader2 className="animate-spin" /> : "Unlock Dashboard"}
                 </button>
 
-                <button onClick={() => setStep('EMAIL')} className="w-full text-xs font-bold text-gray-400 hover:text-gray-600 uppercase tracking-wider">
-                    Switch Account
-                </button>
+                <div className="flex flex-col gap-3">
+                    <div className="flex items-center justify-center gap-1 text-[10px] text-gray-400">
+                         <HelpCircle size={12} />
+                         <span>Forgot PIN? Ask your teacher or reset by switching account.</span>
+                    </div>
+                    <button onClick={() => setStep('EMAIL')} className="w-full text-xs font-bold text-gray-400 hover:text-gray-600 uppercase tracking-wider">
+                        Switch Account
+                    </button>
+                </div>
             </div>
-        )}
-
-        {/* STEP 3: SIGNUP DETAILS */}
-        {step === 'SIGNUP_DETAILS' && (
-             <form onSubmit={handleSignup} className="space-y-4">
-                 <div className="text-center mb-2">
-                    <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4 text-blue-600 shadow-sm">
-                        <ShieldCheck size={32} />
-                    </div>
-                    <h3 className="font-bold text-gray-800 text-lg">Create Account</h3>
-                    <p className="text-gray-500 text-xs mt-1">{email}</p>
-                 </div>
-
-                 <div className="space-y-1">
-                    <label className="text-xs font-bold text-gray-500 ml-1">Full Name</label>
-                    <div className="relative">
-                        <User className="absolute left-3 top-3.5 text-gray-400" size={18} />
-                        <input 
-                            type="text" 
-                            placeholder="Student Name"
-                            value={name}
-                            onChange={(e) => setName(e.target.value)}
-                            className="w-full bg-gray-50 border border-transparent focus:bg-white focus:border-blue-500 rounded-xl pl-10 pr-4 py-3 outline-none text-sm font-medium transition-all"
-                            autoFocus
-                        />
-                    </div>
-                </div>
-
-                <div className="space-y-1">
-                    <label className="text-xs font-bold text-gray-500 ml-1">Set PIN (4 Digits)</label>
-                    <div className="relative">
-                        <Lock className="absolute left-3 top-3.5 text-gray-400" size={18} />
-                        <input 
-                            type="password" 
-                            inputMode="numeric"
-                            maxLength={4}
-                            placeholder="••••"
-                            value={pin}
-                            onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                            className="w-full bg-gray-50 border border-transparent focus:bg-white focus:border-blue-500 rounded-xl pl-10 pr-4 py-3 outline-none text-sm font-medium transition-all tracking-widest"
-                        />
-                    </div>
-                </div>
-
-                <div className="space-y-1">
-                    <label className="text-xs font-bold text-gray-500 ml-1">Confirm PIN</label>
-                    <div className="relative">
-                        <CheckCircle className="absolute left-3 top-3.5 text-gray-400" size={18} />
-                        <input 
-                            type="password" 
-                            inputMode="numeric"
-                            maxLength={4}
-                            placeholder="••••"
-                            value={confirmPin}
-                            onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                            className={`w-full bg-gray-50 border border-transparent focus:bg-white focus:border-blue-500 rounded-xl pl-10 pr-4 py-3 outline-none text-sm font-medium transition-all tracking-widest ${pin && confirmPin && pin !== confirmPin ? 'border-red-300 bg-red-50' : ''}`}
-                        />
-                    </div>
-                </div>
-
-                <button 
-                    type="submit"
-                    disabled={loading || !name || pin.length < 4 || confirmPin.length < 4}
-                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-blue-200 active:scale-95 transition-all flex justify-center items-center gap-2 mt-2 disabled:opacity-50"
-                >
-                    {loading ? <Loader2 className="animate-spin" /> : "Set PIN & Start Learning"}
-                </button>
-                
-                <button type="button" onClick={() => setStep('EMAIL')} className="w-full text-xs font-bold text-gray-400 hover:text-gray-600 uppercase tracking-wider text-center mt-2">
-                    Use different email
-                </button>
-            </form>
         )}
     </div>
   );

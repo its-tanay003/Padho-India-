@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { GoogleLogin } from '@react-oauth/google';
 import { jwtDecode } from 'jwt-decode';
@@ -137,7 +138,7 @@ const GoogleAuth: React.FC<Props> = ({ onLoginSuccess }) => {
       }
     } catch (e) {
       console.error(e);
-      showError("System error during verification. Please reload.");
+      showError("System error during verification. Please check network.");
     } finally {
       setLoading(false);
     }

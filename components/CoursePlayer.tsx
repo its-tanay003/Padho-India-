@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Module } from '../types';
-import { Play, Pause, Volume2, VolumeX, SkipForward, WifiOff, Music, Video, Maximize2 } from 'lucide-react';
+import { Play, Pause, Volume2, VolumeX, SkipForward, WifiOff, Music, Video, Maximize2, CheckCircle } from 'lucide-react';
 import { addXP } from '../db';
 import { useTranslation } from '../contexts/LanguageContext';
 
@@ -19,16 +20,22 @@ const CoursePlayer: React.FC<Props> = ({ module, onComplete, poster }) => {
   const [isAudioMode, setIsAudioMode] = useState(false);
   const [videoSrc, setVideoSrc] = useState<string>('');
   const [isOfflineSrc, setIsOfflineSrc] = useState(false);
+  const [isYoutube, setIsYoutube] = useState(false);
   const { t } = useTranslation();
 
-  // Load Source Logic (Offline Blob vs Online URL)
+  // Load Source Logic (YouTube vs Offline Blob vs Online URL)
   useEffect(() => {
     const loadSource = async () => {
-      if (module.offlineVideoBlob) {
+      if (module.youtubeVideoId) {
+        setIsYoutube(true);
+        setVideoSrc('');
+        setIsOfflineSrc(false);
+      } else if (module.offlineVideoBlob) {
         // Create an Object URL from the stored Blob
         const blobUrl = URL.createObjectURL(module.offlineVideoBlob);
         setVideoSrc(blobUrl);
         setIsOfflineSrc(true);
+        setIsYoutube(false);
       } else {
         // Fallback for simulation: Use a sample video if the URL is fake
         const validUrl = module.videoUrl && !module.videoUrl.startsWith('sim_') 
@@ -36,6 +43,7 @@ const CoursePlayer: React.FC<Props> = ({ module, onComplete, poster }) => {
             : 'https://www.w3schools.com/html/mov_bbb.mp4'; // Public sample video for demo
         setVideoSrc(validUrl);
         setIsOfflineSrc(false);
+        setIsYoutube(false);
       }
     };
     loadSource();
@@ -76,6 +84,11 @@ const CoursePlayer: React.FC<Props> = ({ module, onComplete, poster }) => {
     onComplete();
   };
 
+  const handleYoutubeComplete = async () => {
+    await addXP(50);
+    onComplete();
+  };
+
   const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newProgress = parseFloat(e.target.value);
     if (videoRef.current) {
@@ -91,6 +104,28 @@ const CoursePlayer: React.FC<Props> = ({ module, onComplete, poster }) => {
     const s = Math.floor(seconds % 60);
     return `${m}:${s < 10 ? '0' : ''}${s}`;
   };
+
+  if (isYoutube) {
+      return (
+          <div className="bg-black rounded-2xl overflow-hidden shadow-xl border border-gray-800 relative group aspect-video">
+              <iframe 
+                src={`https://www.youtube.com/embed/${module.youtubeVideoId}`} 
+                title={module.title}
+                className="w-full h-full"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+              <div className="absolute top-4 right-4 z-20">
+                  <button 
+                      onClick={handleYoutubeComplete}
+                      className="bg-green-600/90 hover:bg-green-700 text-white px-4 py-2 rounded-full font-bold text-xs shadow-lg backdrop-blur-sm transition-all flex items-center gap-2"
+                  >
+                      Mark Watched <CheckCircle size={14} />
+                  </button>
+              </div>
+          </div>
+      );
+  }
 
   return (
     <div className="bg-black rounded-2xl overflow-hidden shadow-xl border border-gray-800 relative group">

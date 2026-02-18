@@ -1,3 +1,4 @@
+
 import Dexie, { type Table } from 'dexie';
 import { User, Course, Module, TeacherUpload, SyncLog } from './types';
 import { getLevelInfo } from './gamification';
@@ -41,41 +42,56 @@ export const verifyPin = async (inputPin: string, storedHash: string): Promise<b
 // --- Helper Functions ---
 
 export const findUserByEmail = async (email: string) => {
-  // 1. Try Local First (Offline First)
-  let user = await db.users.where('email').equals(email).first();
-  
-  // 2. If not found locally but online, fetch from Supabase
-  if (!user && navigator.onLine) {
-     try {
-         const { data, error } = await supabase.from('users').select('*').eq('email', email).single();
-         if (data && !error) {
-            const remoteUser: User = {
-                name: data.name,
-                email: data.email,
-                pin: data.pin,
-                phoneNumber: data.phone_number,
-                role: data.role || 'student',
-                grade: data.grade,
-                xp: data.xp || 0,
-                level: data.level || 1,
-                streak: data.streak || 0,
-                badges: data.badges || [],
-                quizzesPassed: data.quizzes_passed || 0,
-                language: data.language || 'en',
-                avatar: data.avatar,
-                darkMode: data.dark_mode,
-                showDailyGyan: data.show_daily_gyan
-            };
+  try {
+    // 1. Try Local First (Offline First)
+    let user = await db.users.where('email').equals(email).first();
+    
+    // 2. If not found locally but online, fetch from Supabase
+    if (!user && navigator.onLine) {
+        try {
+            const { data, error } = await supabase.from('users').select('*').eq('email', email).single();
             
-            // Save to local IndexedDB for future offline access
-            const id = await db.users.add(remoteUser);
-            user = { ...remoteUser, id: id as number };
-         }
-     } catch (e) {
-         console.warn("Cloud fetch failed", e);
-     }
+            if (error) {
+                // If user not found in supabase, it returns an error, we can ignore if it's just 'Row not found'
+                if (error.code !== 'PGRST116') { // PGRST116 is 'JSON object requested, multiple (or no) rows returned'
+                   console.warn("Supabase Fetch Error:", error.message);
+                }
+                return null;
+            }
+
+            if (data) {
+                const remoteUser: User = {
+                    name: data.name,
+                    email: data.email,
+                    pin: data.pin,
+                    phoneNumber: data.phone_number,
+                    role: data.role || 'student',
+                    grade: data.grade,
+                    xp: data.xp || 0,
+                    level: data.level || 1,
+                    streak: data.streak || 0,
+                    badges: data.badges || [],
+                    quizzesPassed: data.quizzes_passed || 0,
+                    language: data.language || 'en',
+                    avatar: data.avatar,
+                    darkMode: data.dark_mode,
+                    showDailyGyan: data.show_daily_gyan
+                };
+                
+                // Save to local IndexedDB for future offline access
+                const id = await db.users.add(remoteUser);
+                user = { ...remoteUser, id: id as number };
+            }
+        } catch (e) {
+            console.warn("Cloud fetch failed due to network exception", e);
+            throw new Error("Unable to connect to cloud database.");
+        }
+    }
+    return user;
+  } catch (error) {
+      console.error("Database Error:", error);
+      throw error;
   }
-  return user;
 };
 
 export const updateUser = async (id: number, updates: Partial<User>) => {
@@ -104,7 +120,7 @@ export const registerUserWithGoogle = async (name: string, email: string, pin: s
   // Sync to Supabase immediately if online
   if (navigator.onLine) {
       try {
-          await supabase.from('users').upsert({
+          const { error } = await supabase.from('users').upsert({
             email: newUser.email,
             name: newUser.name,
             pin: newUser.pin,
@@ -117,8 +133,12 @@ export const registerUserWithGoogle = async (name: string, email: string, pin: s
             quizzes_passed: newUser.quizzesPassed,
             language: newUser.language
           }, { onConflict: 'email' });
+
+          if (error) throw new Error(error.message);
+
       } catch (e) {
-          console.warn("Immediate Supabase sync failed", e);
+          console.warn("Immediate Supabase sync failed, queuing for background sync", e);
+          await logActivity('USER_REGISTERED_GOOGLE', { id, ...newUser });
       }
   } else {
       await logActivity('USER_REGISTERED_GOOGLE', { id, ...newUser });
@@ -147,7 +167,7 @@ export const registerUserManual = async (name: string, email: string, pin: strin
 
   if (navigator.onLine) {
       try {
-          await supabase.from('users').upsert({
+          const { error } = await supabase.from('users').upsert({
             email: newUser.email,
             name: newUser.name,
             pin: newUser.pin,
@@ -160,8 +180,12 @@ export const registerUserManual = async (name: string, email: string, pin: strin
             quizzes_passed: newUser.quizzesPassed,
             language: newUser.language
           }, { onConflict: 'email' });
+          
+          if (error) throw new Error(error.message);
+
       } catch (e) {
           console.warn("Immediate Supabase sync failed", e);
+          await logActivity('USER_REGISTERED_EMAIL', { id, ...newUser });
       }
   } else {
       await logActivity('USER_REGISTERED_EMAIL', { id, ...newUser });

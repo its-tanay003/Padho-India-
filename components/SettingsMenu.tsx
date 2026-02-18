@@ -32,8 +32,16 @@ const SettingsMenu: React.FC<Props> = ({ onBack, onLogout }) => {
 
   useEffect(() => {
     const loadVoices = () => {
-      const v = window.speechSynthesis.getVoices();
-      setVoices(v.sort((a, b) => a.name.localeCompare(b.name)));
+      const allVoices = window.speechSynthesis.getVoices();
+      // Sort Female voices to top for better UX
+      const sorted = allVoices.sort((a, b) => {
+          const aFemale = /female|zira|samantha|google us english|google हिन्दी/i.test(a.name);
+          const bFemale = /female|zira|samantha|google us english|google हिन्दी/i.test(b.name);
+          if (aFemale && !bFemale) return -1;
+          if (!aFemale && bFemale) return 1;
+          return a.name.localeCompare(b.name);
+      });
+      setVoices(sorted);
     };
     loadVoices();
     window.speechSynthesis.onvoiceschanged = loadVoices;
@@ -153,21 +161,24 @@ const SettingsMenu: React.FC<Props> = ({ onBack, onLogout }) => {
            </h3>
            
            <div className="bg-gray-50 p-4 rounded-xl">
-               <label className="block text-xs font-bold text-gray-500 mb-2">AI Tutor Voice</label>
+               <label className="block text-xs font-bold text-gray-500 mb-2">AI Tutor Voice (Female Preferred)</label>
                <select 
                  value={selectedVoiceURI} 
                  onChange={handleVoiceChange}
                  className="w-full p-3 rounded-xl border border-gray-200 bg-white text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                >
                  <option value="">Default System Voice</option>
-                 {voices.map(v => (
-                   <option key={v.voiceURI} value={v.voiceURI}>
-                     {v.name} ({v.lang})
-                   </option>
-                 ))}
+                 {voices.map(v => {
+                   const isFemale = /female|zira|samantha|google us english|google हिन्दी/i.test(v.name);
+                   return (
+                    <option key={v.voiceURI} value={v.voiceURI}>
+                        {v.name} {isFemale ? '(Recommended)' : ''} ({v.lang})
+                    </option>
+                   );
+                 })}
                </select>
                <p className="text-[10px] text-gray-400 mt-2">
-                 Note: Available voices depend on your device/browser.
+                 We prioritize female voices for a better tutoring experience.
                </p>
            </div>
         </div>

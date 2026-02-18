@@ -27,7 +27,15 @@ const DailyGyanPopup: React.FC = () => {
   useEffect(() => {
     const loadVoices = () => {
       const v = window.speechSynthesis.getVoices();
-      setVoices(v);
+      // Sort Female voices to top
+      const sorted = v.sort((a, b) => {
+          const aFemale = /female|zira|samantha|google us english|google हिन्दी/i.test(a.name);
+          const bFemale = /female|zira|samantha|google us english|google हिन्दी/i.test(b.name);
+          if (aFemale && !bFemale) return -1;
+          if (!aFemale && bFemale) return 1;
+          return a.name.localeCompare(b.name);
+      });
+      setVoices(sorted);
     };
     loadVoices();
     window.speechSynthesis.onvoiceschanged = loadVoices;
@@ -295,20 +303,23 @@ const DailyGyanPopup: React.FC = () => {
 
              {/* Voice Selection Menu (Absolute positioned upwards) */}
              {showVoiceSettings && (
-                 <div className="absolute bottom-full left-0 m-3 w-64 bg-white rounded-xl shadow-xl border border-gray-100 max-h-48 overflow-y-auto z-30 animate-in slide-in-from-bottom-2">
+                 <div className="absolute bottom-full left-0 m-3 w-64 bg-white rounded-xl shadow-xl border border-gray-100 max-h-48 overflow-y-auto z-30 animate-in slide-in-from-bottom-2 custom-scrollbar">
                      <div className="p-2 sticky top-0 bg-white border-b border-gray-100 font-bold text-xs text-gray-500 uppercase tracking-wider">
                          Select Voice
                      </div>
-                     {voices.map(v => (
+                     {voices.map(v => {
+                        const isFemale = /female|zira|samantha|google us english|google हिन्दी/i.test(v.name);
+                        return (
                          <button
                             key={v.voiceURI}
                             onClick={() => handleVoiceSelection(v.voiceURI)}
                             className={`w-full text-left px-4 py-2 text-xs truncate hover:bg-blue-50 flex items-center justify-between ${selectedVoiceURI === v.voiceURI ? 'text-blue-600 font-bold bg-blue-50' : 'text-gray-600'}`}
                          >
-                            <span>{v.name}</span>
+                            <span>{v.name} {isFemale && '(Recommended)'}</span>
                             {selectedVoiceURI === v.voiceURI && <Check size={12} />}
                          </button>
-                     ))}
+                        );
+                     })}
                  </div>
              )}
         </div>

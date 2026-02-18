@@ -39,6 +39,7 @@ export interface Module {
   title: string;
   videoUrl?: string; 
   audioUrl?: string;
+  youtubeVideoId?: string; // Added for YouTube support
   offlineVideoBlob?: Blob; // Added for offline support
   content?: string; // Kept for text content support
   type: ModuleType;

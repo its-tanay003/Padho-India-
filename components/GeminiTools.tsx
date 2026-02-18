@@ -316,36 +316,36 @@ const GeminiTools: React.FC = () => {
                     {/* Suggestion Grid */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-lg px-4">
                         <button 
-                            onClick={() => { setMode('chat'); handleSend("How does photosynthesis work? Explain it simply."); }}
+                            onClick={() => { setMode('chat'); handleSend("Explain Quantum Physics to a 5 year old."); }}
                             className="bg-white p-4 rounded-2xl shadow-sm hover:shadow-lg border border-orange-50 hover:border-orange-200 transition-all text-left group active:scale-95 flex items-center gap-3"
                         >
-                            <div className="bg-green-100 w-10 h-10 rounded-full flex items-center justify-center text-green-600 group-hover:scale-110 transition-transform shrink-0">
-                                <Leaf size={18} />
+                            <div className="bg-blue-100 w-10 h-10 rounded-full flex items-center justify-center text-blue-600 group-hover:scale-110 transition-transform shrink-0">
+                                <Zap size={18} />
                             </div>
                             <div>
-                                <span className="font-bold text-gray-700 text-sm block">Photosynthesis?</span>
+                                <span className="font-bold text-gray-700 text-sm block">Quantum Physics?</span>
                                 <p className="text-[10px] text-gray-400">Ask a question</p>
                             </div>
                         </button>
 
                         <button 
-                            onClick={() => { setMode('generate_image'); handleSend("A majestic tiger walking in the Indian jungle, detailed, photorealistic"); }}
+                            onClick={() => { setMode('generate_image'); handleSend("A futuristic city with neon lights and flying cars, cyberpunk style, highly detailed"); }}
                             className="bg-white p-4 rounded-2xl shadow-sm hover:shadow-lg border border-orange-50 hover:border-orange-200 transition-all text-left group active:scale-95 flex items-center gap-3"
                         >
-                            <div className="bg-orange-100 w-10 h-10 rounded-full flex items-center justify-center text-orange-600 group-hover:scale-110 transition-transform shrink-0">
+                            <div className="bg-purple-100 w-10 h-10 rounded-full flex items-center justify-center text-purple-600 group-hover:scale-110 transition-transform shrink-0">
                                 <ImageIcon size={18} />
                             </div>
                             <div>
-                                <span className="font-bold text-gray-700 text-sm block">Tiger Image</span>
-                                <p className="text-[10px] text-gray-400">Generate art</p>
+                                <span className="font-bold text-gray-700 text-sm block">Futuristic City</span>
+                                <p className="text-[10px] text-gray-400">Generate image</p>
                             </div>
                         </button>
 
                         <button 
-                            onClick={() => { setMode('tts'); handleSend("The woods are lovely, dark and deep, But I have promises to keep, And miles to go before I sleep."); }}
+                            onClick={() => { setMode('tts'); handleSend("Two roads diverged in a yellow wood, And sorry I could not travel both And be one traveler, long I stood..."); }}
                             className="bg-white p-4 rounded-2xl shadow-sm hover:shadow-lg border border-orange-50 hover:border-orange-200 transition-all text-left group active:scale-95 flex items-center gap-3"
                         >
-                            <div className="bg-purple-100 w-10 h-10 rounded-full flex items-center justify-center text-purple-600 group-hover:scale-110 transition-transform shrink-0">
+                            <div className="bg-green-100 w-10 h-10 rounded-full flex items-center justify-center text-green-600 group-hover:scale-110 transition-transform shrink-0">
                                 <Volume2 size={18} />
                             </div>
                             <div>
@@ -355,14 +355,14 @@ const GeminiTools: React.FC = () => {
                         </button>
 
                         <button 
-                            onClick={() => { setMode('generate_video'); handleSend("A peacock dancing in the rain"); }}
+                            onClick={() => { setMode('generate_video'); handleSend("A majestic dragon flying over a medieval castle, cinematic lighting, 4k"); }}
                             className="bg-white p-4 rounded-2xl shadow-sm hover:shadow-lg border border-orange-50 hover:border-orange-200 transition-all text-left group active:scale-95 flex items-center gap-3"
                         >
                             <div className="bg-red-100 w-10 h-10 rounded-full flex items-center justify-center text-red-600 group-hover:scale-110 transition-transform shrink-0">
                                 <Video size={18} />
                             </div>
                             <div>
-                                <span className="font-bold text-gray-700 text-sm block">Peacock Video</span>
+                                <span className="font-bold text-gray-700 text-sm block">Dragon Video</span>
                                 <p className="text-[10px] text-gray-400">Create video</p>
                             </div>
                         </button>

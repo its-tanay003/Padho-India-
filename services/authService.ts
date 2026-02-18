@@ -1,5 +1,5 @@
 
-import { db, logActivity } from '../db';
+import { db, logActivity, findUserByEmail } from '../db';
 
 const SESSION_KEY = 'padho_user_id';
 
@@ -23,6 +23,7 @@ export const verifyOTP = async (code: string): Promise<boolean> => {
 export const checkUserExists = async (phoneNumber: string) => {
   try {
     const user = await db.users.where('phoneNumber').equals(phoneNumber).first();
+    // Also check Supabase if online (simplified for this legacy phone logic)
     return user || null;
   } catch (e) {
     console.error("Error checking user:", e);
@@ -49,6 +50,10 @@ export const registerUser = async (phoneNumber: string, name: string, grade: str
       quizzesPassed: 0,
       language: 'en'
     });
+    
+    // Note: This registerUser function seems to be legacy for Phone Auth. 
+    // The main flow uses registerUserManual in db.ts which handles Supabase Sync.
+    // If we enable phone auth later, we should add supabase sync here too.
     
     await logActivity('USER_REGISTERED', { id, name });
     return id;
