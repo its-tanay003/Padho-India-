@@ -4,7 +4,7 @@ import { jwtDecode } from 'jwt-decode';
 import { findUserByEmail, registerUserWithGoogle, verifyPin, createGuestAccount } from '../db';
 import { loginUser } from '../services/authService';
 import { checkSyncStatus } from '../services/networkSim';
-import { Lock, ShieldCheck, AlertCircle, Loader2, XCircle, UserCircle } from 'lucide-react';
+import { Lock, ShieldCheck, AlertCircle, Loader2, XCircle, UserCircle, HelpCircle } from 'lucide-react';
 
 interface Props {
   onLoginSuccess: () => void;
@@ -37,14 +37,14 @@ const GoogleAuth: React.FC<Props> = ({ onLoginSuccess }) => {
     setError('');
     try {
       if (!credentialResponse.credential) {
-         throw new Error("No credentials received from Google.");
+         throw new Error("No credentials received from Google. Please try again.");
       }
       
       const details: any = jwtDecode(credentialResponse.credential);
       const email = details.email;
       const name = details.name;
       
-      if (!email) throw new Error("Email not found in Google account.");
+      if (!email) throw new Error("Email not found in Google account. Please use a valid Google account.");
 
       // Check both local DB and Supabase via db.ts wrapper
       const existingUser = await findUserByEmail(email);
@@ -61,14 +61,14 @@ const GoogleAuth: React.FC<Props> = ({ onLoginSuccess }) => {
       }
     } catch (e: any) {
       console.error(e);
-      showError(e.message || "Failed to sign in. Please check your internet connection and try again.");
+      showError(e.message || "Sign-in failed. Please check your connection.");
     } finally {
       setLoading(false);
     }
   };
 
   const handleGoogleError = () => {
-      showError("Google Sign-In service unavailable. If this persists, please use Guest Mode.");
+      showError("Google Sign-In unavailable. Please try Guest Mode.");
   };
 
   const handleGuestLogin = async () => {
@@ -82,14 +82,14 @@ const GoogleAuth: React.FC<Props> = ({ onLoginSuccess }) => {
         }
     } catch (e) {
         console.error("Guest login failed", e);
-        showError("Guest login failed.");
+        showError("Guest login failed. Please reload.");
     } finally {
         setLoading(false);
     }
   };
 
   const handleSetPin = async () => {
-    if (pin.length !== 4) return showError("Please enter a 4-digit PIN.");
+    if (pin.length !== 4) return showError("PIN must be exactly 4 digits.");
     if (pin !== confirmPin) return showError("PINs do not match. Please re-enter.");
     if (!tempUser) return showError("Session expired. Please sign in again.");
 
@@ -116,7 +116,7 @@ const GoogleAuth: React.FC<Props> = ({ onLoginSuccess }) => {
         if (pin.length === 0) return showError("Please enter your PIN.");
         return showError("PIN must be 4 digits.");
     } 
-    if (!tempUser) return showError("User session invalid. Please switch account.");
+    if (!tempUser) return showError("Session expired. Please switch account to log in again.");
 
     setLoading(true);
     try {
@@ -129,10 +129,10 @@ const GoogleAuth: React.FC<Props> = ({ onLoginSuccess }) => {
           onLoginSuccess();
         } else {
           setPin('');
-          showError("Incorrect PIN. Please try again.");
+          showError("PIN mismatch. Please try again.");
         }
       } else {
-          showError("User record not found. Please sign up again.");
+          showError("Account not found. Please sign up to continue.");
           setStep('GOOGLE_SIGNIN');
       }
     } catch (e) {
@@ -275,17 +275,23 @@ const GoogleAuth: React.FC<Props> = ({ onLoginSuccess }) => {
               {loading ? <Loader2 className="animate-spin" /> : "Unlock Dashboard"}
             </button>
             
-            <button 
-              onClick={() => {
-                  setStep('GOOGLE_SIGNIN');
-                  setTempUser(null);
-                  setPin('');
-                  setError('');
-              }}
-              className="w-full text-xs font-bold text-gray-400 hover:text-gray-600 uppercase tracking-wider"
-            >
-              Switch Account
-            </button>
+            <div className="flex flex-col gap-3">
+                <div className="flex items-center justify-center gap-1 text-[10px] text-gray-400">
+                     <HelpCircle size={12} />
+                     <span>Forgot PIN? Ask your teacher or reset by switching account.</span>
+                </div>
+                <button 
+                  onClick={() => {
+                      setStep('GOOGLE_SIGNIN');
+                      setTempUser(null);
+                      setPin('');
+                      setError('');
+                  }}
+                  className="w-full text-xs font-bold text-gray-400 hover:text-gray-600 uppercase tracking-wider"
+                >
+                  Switch Account
+                </button>
+            </div>
         </div>
       )}
     </div>

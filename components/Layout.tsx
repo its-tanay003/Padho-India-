@@ -87,10 +87,14 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
              <div className="md:hidden">
                 <h1 className="text-sm font-black tracking-wide text-gray-800">Padho India</h1>
              </div>
-             <div className="flex items-center gap-1">
-                {!isOnline && (
-                   <span className="flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded bg-red-100 text-red-600 animate-pulse">
-                       <WifiOff size={10} /> OFFLINE
+             <div className="flex items-center gap-1 mt-1">
+                {isOnline ? (
+                   <span className="flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-full bg-green-50 text-green-600 border border-green-100 transition-all">
+                       <Wifi size={12} strokeWidth={3} /> <span className="hidden sm:inline">ONLINE</span>
+                   </span>
+                ) : (
+                   <span className="flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-full bg-red-50 text-red-600 border border-red-100 animate-pulse transition-all">
+                       <WifiOff size={12} strokeWidth={3} /> OFFLINE
                    </span>
                 )}
              </div>

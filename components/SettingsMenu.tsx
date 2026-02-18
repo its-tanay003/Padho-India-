@@ -7,7 +7,7 @@ import { useTranslation } from '../contexts/LanguageContext';
 import { Language } from '../data/translations';
 import { 
   ChevronLeft, Moon, Sun, Globe, Bell, BellOff, 
-  LogOut, User as UserIcon, Check, Type
+  LogOut, User as UserIcon, Check, Volume2
 } from 'lucide-react';
 
 interface Props {
@@ -21,12 +21,26 @@ const SettingsMenu: React.FC<Props> = ({ onBack, onLogout }) => {
   const { setLanguage, language, t } = useTranslation();
 
   const [editName, setEditName] = useState('');
+  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [selectedVoiceURI, setSelectedVoiceURI] = useState('');
   
   useEffect(() => {
     if (user) {
       setEditName(user.name);
     }
   }, [user]);
+
+  useEffect(() => {
+    const loadVoices = () => {
+      const v = window.speechSynthesis.getVoices();
+      setVoices(v.sort((a, b) => a.name.localeCompare(b.name)));
+    };
+    loadVoices();
+    window.speechSynthesis.onvoiceschanged = loadVoices;
+
+    const saved = localStorage.getItem('padho_voice_uri');
+    if (saved) setSelectedVoiceURI(saved);
+  }, []);
 
   const toggleDarkMode = async () => {
     if (!user || !userId) return;
@@ -49,6 +63,21 @@ const SettingsMenu: React.FC<Props> = ({ onBack, onLogout }) => {
 
   const handleLanguageChange = (lang: Language) => {
     setLanguage(lang);
+  };
+
+  const handleVoiceChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const uri = e.target.value;
+    setSelectedVoiceURI(uri);
+    localStorage.setItem('padho_voice_uri', uri);
+
+    // Play preview
+    window.speechSynthesis.cancel();
+    const v = voices.find(voice => voice.voiceURI === uri);
+    if (v) {
+        const u = new SpeechSynthesisUtterance("Namaste! I am your AI Tutor.");
+        u.voice = v;
+        window.speechSynthesis.speak(u);
+    }
   };
 
   if (!user) return null;
@@ -114,6 +143,32 @@ const SettingsMenu: React.FC<Props> = ({ onBack, onLogout }) => {
               >
                 Hinglish
               </button>
+           </div>
+        </div>
+
+        {/* Audio Section */}
+        <div className="space-y-3">
+           <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1">
+             <Volume2 size={12} /> Audio Settings
+           </h3>
+           
+           <div className="bg-gray-50 p-4 rounded-xl">
+               <label className="block text-xs font-bold text-gray-500 mb-2">AI Tutor Voice</label>
+               <select 
+                 value={selectedVoiceURI} 
+                 onChange={handleVoiceChange}
+                 className="w-full p-3 rounded-xl border border-gray-200 bg-white text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+               >
+                 <option value="">Default System Voice</option>
+                 {voices.map(v => (
+                   <option key={v.voiceURI} value={v.voiceURI}>
+                     {v.name} ({v.lang})
+                   </option>
+                 ))}
+               </select>
+               <p className="text-[10px] text-gray-400 mt-2">
+                 Note: Available voices depend on your device/browser.
+               </p>
            </div>
         </div>
 

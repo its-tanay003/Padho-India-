@@ -26,7 +26,7 @@ export const checkUserExists = async (phoneNumber: string) => {
     return user || null;
   } catch (e) {
     console.error("Error checking user:", e);
-    throw new Error("Unable to check user existence. Please verify your connection.");
+    throw new Error("Unable to check user existence. Please verify your connection or try again later.");
   }
 };
 
@@ -34,7 +34,7 @@ export const registerUser = async (phoneNumber: string, name: string, grade: str
   try {
     const existing = await checkUserExists(phoneNumber);
     if (existing) {
-        throw new Error("A user with this phone number already exists.");
+        throw new Error("A user with this phone number already exists. Please log in.");
     }
 
     const id = await db.users.add({
@@ -55,7 +55,7 @@ export const registerUser = async (phoneNumber: string, name: string, grade: str
   } catch (e: any) {
     console.error("Error registering user:", e);
     if (e.message) throw e;
-    throw new Error("Registration failed due to a database error.");
+    throw new Error("Registration failed due to a database error. Please ensure you have sufficient storage space.");
   }
 };
 
