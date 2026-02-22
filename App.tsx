@@ -13,6 +13,7 @@ import { Play, CheckCircle, Award, BrainCircuit, Loader2, ArrowRight, ChevronLef
 import { isAuthenticated, logoutUser, getSessionId } from './services/authService';
 import { useTranslation } from './contexts/LanguageContext';
 import { simulateDownload, checkSyncStatus } from './services/networkSim';
+import { Analytics } from '@vercel/analytics/react';
 
 // --- COMPONENTS ---
 
@@ -507,6 +508,7 @@ const App: React.FC = () => {
         <Route path="/profile" element={<ProfileView onLogout={handleLogout} />} />
         </Routes>
     </Layout>
+    <Analytics />
     </HashRouter>
   );
 };
