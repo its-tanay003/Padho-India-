@@ -33,8 +33,13 @@ const SettingsMenu: React.FC<Props> = ({ onBack, onLogout }) => {
   useEffect(() => {
     const loadVoices = () => {
       const allVoices = window.speechSynthesis.getVoices();
+      // Filter duplicates by voiceURI to avoid React key warnings
+      const uniqueVoices = allVoices.filter((v, index, self) =>
+        index === self.findIndex((t) => t.voiceURI === v.voiceURI)
+      );
+      
       // Sort Female voices to top for better UX
-      const sorted = allVoices.sort((a, b) => {
+      const sorted = uniqueVoices.sort((a, b) => {
           const aFemale = /female|zira|samantha|google us english|google हिन्दी/i.test(a.name);
           const bFemale = /female|zira|samantha|google us english|google हिन्दी/i.test(b.name);
           if (aFemale && !bFemale) return -1;

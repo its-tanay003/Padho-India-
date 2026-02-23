@@ -45,6 +45,7 @@ export interface Module {
   type: ModuleType;
   isCompleted: boolean;
   quiz?: Quiz;
+  captions?: { language: string; label: string; src: string }[];
 }
 
 export interface TeacherUpload {

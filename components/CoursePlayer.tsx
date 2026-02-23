@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Module } from '../types';
-import { Play, Pause, Volume2, VolumeX, SkipForward, WifiOff, Music, Video, Maximize2, CheckCircle } from 'lucide-react';
+import { Play, Pause, Volume2, VolumeX, SkipForward, WifiOff, Music, Video, Maximize2, CheckCircle, Subtitles } from 'lucide-react';
 import { addXP } from '../db';
 import { useTranslation } from '../contexts/LanguageContext';
 
@@ -21,6 +21,9 @@ const CoursePlayer: React.FC<Props> = ({ module, onComplete, poster }) => {
   const [videoSrc, setVideoSrc] = useState<string>('');
   const [isOfflineSrc, setIsOfflineSrc] = useState(false);
   const [isYoutube, setIsYoutube] = useState(false);
+  const [isCaptionsEnabled, setIsCaptionsEnabled] = useState(false);
+  const [selectedCaptionLanguage, setSelectedCaptionLanguage] = useState<string>('');
+  const [showCaptionMenu, setShowCaptionMenu] = useState(false);
   const { t } = useTranslation();
 
   // Load Source Logic (YouTube vs Offline Blob vs Online URL)
@@ -55,6 +58,25 @@ const CoursePlayer: React.FC<Props> = ({ module, onComplete, poster }) => {
       }
     };
   }, [module]);
+
+  useEffect(() => {
+    if (module.captions && module.captions.length > 0) {
+      setSelectedCaptionLanguage(module.captions[0].language);
+    }
+  }, [module.captions]);
+
+  useEffect(() => {
+    if (videoRef.current) {
+      const tracks = videoRef.current.textTracks;
+      for (let i = 0; i < tracks.length; i++) {
+        if (tracks[i].language === selectedCaptionLanguage && isCaptionsEnabled) {
+          tracks[i].mode = 'showing';
+        } else {
+          tracks[i].mode = 'hidden';
+        }
+      }
+    }
+  }, [isCaptionsEnabled, selectedCaptionLanguage, videoSrc]);
 
   const togglePlay = () => {
     if (videoRef.current) {
@@ -150,7 +172,19 @@ const CoursePlayer: React.FC<Props> = ({ module, onComplete, poster }) => {
         onTimeUpdate={handleTimeUpdate}
         onEnded={handleEnded}
         playsInline
-      />
+        crossOrigin="anonymous"
+      >
+        {module.captions?.map((caption, index) => (
+          <track
+            key={index}
+            kind="subtitles"
+            src={caption.src}
+            srcLang={caption.language}
+            label={caption.label}
+            default={index === 0}
+          />
+        ))}
+      </video>
 
       {/* Controls Overlay */}
       <div className={`absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-4 transition-opacity duration-300 ${!isPlaying ? 'opacity-100' : 'opacity-100 md:opacity-0 md:group-hover:opacity-100'} z-20`}>
@@ -198,7 +232,53 @@ const CoursePlayer: React.FC<Props> = ({ module, onComplete, poster }) => {
                 </div>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 relative">
+                {/* Captions Toggle */}
+                {module.captions && module.captions.length > 0 && (
+                  <div className="relative">
+                    <button 
+                        onClick={() => setShowCaptionMenu(!showCaptionMenu)}
+                        className={`flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider transition-colors ${isCaptionsEnabled ? 'bg-blue-500 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}
+                    >
+                        <Subtitles size={12} />
+                        CC
+                    </button>
+                    
+                    {showCaptionMenu && (
+                      <div className="absolute bottom-full right-0 mb-2 bg-gray-900 border border-gray-700 rounded-xl shadow-xl overflow-hidden min-w-[120px] z-50">
+                        <div className="p-2 border-b border-gray-800 flex justify-between items-center">
+                          <span className="text-xs font-bold text-gray-400 uppercase">Captions</span>
+                          <button 
+                            onClick={() => {
+                              setIsCaptionsEnabled(!isCaptionsEnabled);
+                              setShowCaptionMenu(false);
+                            }}
+                            className={`text-xs font-bold px-2 py-0.5 rounded ${isCaptionsEnabled ? 'bg-red-500/20 text-red-400' : 'bg-green-500/20 text-green-400'}`}
+                          >
+                            {isCaptionsEnabled ? 'OFF' : 'ON'}
+                          </button>
+                        </div>
+                        {isCaptionsEnabled && (
+                          <div className="max-h-32 overflow-y-auto">
+                            {module.captions.map((caption, idx) => (
+                              <button
+                                key={idx}
+                                onClick={() => {
+                                  setSelectedCaptionLanguage(caption.language);
+                                  setShowCaptionMenu(false);
+                                }}
+                                className={`w-full text-left px-3 py-2 text-xs font-medium hover:bg-gray-800 transition-colors ${selectedCaptionLanguage === caption.language ? 'text-blue-400 bg-gray-800/50' : 'text-gray-300'}`}
+                              >
+                                {caption.label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* Audio Mode Toggle */}
                 <button 
                     onClick={() => setIsAudioMode(!isAudioMode)}

@@ -2,22 +2,56 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   Sparkles, MessageSquare, Image as ImageIcon, Video, Mic, 
-  Search, Volume2, Edit, Zap, BrainCircuit, Loader2, Play, Paperclip, X, Settings2, Send, StopCircle, ChevronLeft, PenTool, FileText, Key, Leaf, Book
+  Search, Volume2, Edit, Zap, BrainCircuit, Loader2, Play, Paperclip, X, Settings2, Send, StopCircle, ChevronLeft, PenTool, FileText, Key, Leaf, Book, MapPin, Brain, Phone, Languages, HelpCircle, ChevronDown, ChevronUp
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import * as GeminiService from '../services/geminiService';
 import { GeminiModel } from '../types';
 import { GEMINI_API_KEY } from '../constants';
+import { db, addXP } from '../db';
+import { useLiveQuery } from 'dexie-react-hooks';
 
 type MessageType = 'text' | 'image' | 'video' | 'audio';
-type ToolMode = 'chat' | 'generate_image' | 'generate_video' | 'tts';
+type ToolMode = 'chat' | 'generate_image' | 'generate_video' | 'tts' | 'analyze';
 
 interface ChatMessage {
   role: 'user' | 'model';
   type: MessageType;
   content: string;
   grounding?: any;
+  parts?: any[]; // For history
 }
+
+const GroundingSources = ({ grounding }: { grounding: any }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  if (!Array.isArray(grounding) || grounding.length === 0) return null;
+
+  return (
+    <div className="mt-3 pt-3 border-t border-gray-100/20">
+      <button 
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="flex items-center gap-1 text-[10px] font-bold opacity-70 hover:opacity-100 transition-opacity mb-2"
+      >
+        {isExpanded ? <ChevronUp size={10}/> : <ChevronDown size={10}/>}
+        {isExpanded ? 'Hide Sources' : `Show ${grounding.length} Sources`}
+      </button>
+      
+      {isExpanded && (
+        <div className="flex flex-wrap gap-2 animate-in fade-in slide-in-from-top-1">
+          {grounding.map((chunk: any, idx: number) => {
+            if (chunk.web?.uri) {
+              return <a key={idx} href={chunk.web.uri} target="_blank" rel="noreferrer" className="text-[10px] bg-white/10 px-2 py-1 rounded hover:bg-white/20 truncate max-w-[150px] inline-block">{chunk.web.title || chunk.web.uri}</a>;
+            }
+            if (chunk.maps?.uri) {
+              return <a key={idx} href={chunk.maps.uri} target="_blank" rel="noreferrer" className="text-[10px] bg-white/10 px-2 py-1 rounded hover:bg-white/20 truncate max-w-[150px] inline-block flex items-center gap-1"><MapPin size={10}/> {chunk.maps.title || 'Map Location'}</a>;
+            }
+            return null;
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
 
 const GeminiTools: React.FC = () => {
   const navigate = useNavigate();
@@ -29,10 +63,17 @@ const GeminiTools: React.FC = () => {
   
   // Settings
   const [useSearch, setUseSearch] = useState(false);
+  const [useMaps, setUseMaps] = useState(false);
   const [useThinking, setUseThinking] = useState(false);
   const [videoRatio, setVideoRatio] = useState<'16:9'|'9:16'>('16:9');
   const [imgSize, setImgSize] = useState('1K');
   const [imgRatio, setImgRatio] = useState('1:1');
+  const [useProImage, setUseProImage] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  
+  // Live API
+  const [isLiveActive, setIsLiveActive] = useState(false);
+  const liveSessionRef = useRef<any>(null);
   
   // Refs for media
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -77,6 +118,77 @@ const GeminiTools: React.FC = () => {
               else alert("Custom key cleared. Using default.");
           }
       }
+  };
+
+  const handleLiveToggle = async () => {
+    if (isLiveActive) {
+      liveSessionRef.current?.close();
+      setIsLiveActive(false);
+      setMessages(prev => [...prev, { role: 'model', type: 'text', content: "Live session ended." }]);
+      return;
+    }
+
+    try {
+      await checkApiKey();
+      setLoading(true);
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
+      const source = audioContext.createMediaStreamSource(stream);
+      const processor = audioContext.createScriptProcessor(4096, 1, 1);
+      
+      source.connect(processor);
+      processor.connect(audioContext.destination);
+
+      const sessionPromise = GeminiService.connectLiveSession(
+        () => {
+          setLoading(false);
+          setIsLiveActive(true);
+          setMessages(prev => [...prev, { role: 'model', type: 'text', content: "Live session started! Speak into your microphone." }]);
+          
+          processor.onaudioprocess = (e) => {
+            const inputData = e.inputBuffer.getChannelData(0);
+            const pcm16 = new Int16Array(inputData.length);
+            for (let i = 0; i < inputData.length; i++) {
+              pcm16[i] = Math.max(-1, Math.min(1, inputData[i])) * 32767;
+            }
+            const base64 = btoa(String.fromCharCode(...new Uint8Array(pcm16.buffer)));
+            sessionPromise.then(session => {
+              session.sendRealtimeInput({
+                media: { mimeType: 'audio/pcm;rate=16000', data: base64 }
+              });
+            });
+          };
+        },
+        (msg) => {
+          const base64Audio = msg.serverContent?.modelTurn?.parts?.[0]?.inlineData?.data;
+          if (base64Audio) {
+            playAudio(base64Audio);
+          }
+        },
+        () => {
+          setIsLiveActive(false);
+          processor.disconnect();
+          source.disconnect();
+          stream.getTracks().forEach(t => t.stop());
+        },
+        (err) => {
+          console.error("Live API Error:", err);
+          setIsLiveActive(false);
+          processor.disconnect();
+          source.disconnect();
+          stream.getTracks().forEach(t => t.stop());
+        }
+      );
+      liveSessionRef.current = {
+        close: () => {
+          sessionPromise.then(s => s.close());
+        }
+      };
+    } catch (e) {
+      console.error(e);
+      setLoading(false);
+      alert("Could not start Live Session. Check microphone permissions.");
+    }
   };
 
   const handleMicToggle = async () => {
@@ -128,16 +240,37 @@ const GeminiTools: React.FC = () => {
     const textToSend = forcedInput || input;
     if (!textToSend.trim() && !selectedFile) return;
     
-    setMessages(prev => [...prev, {
-        role: 'user',
-        type: selectedFile ? 'image' : 'text',
-        content: textToSend, 
-        grounding: selectedFile ? { preview: selectedFile.type.startsWith('image/') ? URL.createObjectURL(selectedFile) : undefined, fileName: selectedFile.name } : undefined
-    }]);
-
-    setLoading(true);
     const currentInput = textToSend;
     const currentFile = selectedFile;
+    
+    const userMsg: ChatMessage = { 
+        role: 'user', 
+        type: currentFile ? 'image' : 'text', 
+        content: currentInput,
+        parts: currentFile ? undefined : [{ text: currentInput }]
+    };
+
+    if (currentFile) {
+        const reader = new FileReader();
+        reader.readAsDataURL(currentFile);
+        reader.onload = () => {
+            const base64 = reader.result as string;
+            const base64Data = base64.split(',')[1];
+            userMsg.parts = [
+                { inlineData: { data: base64Data, mimeType: currentFile.type } },
+                { text: currentInput || (currentFile.type.startsWith('image/') ? "Describe this image." : "Summarize this document.") }
+            ];
+            userMsg.grounding = {
+                preview: currentFile.type.startsWith('image/') ? base64 : undefined,
+                fileName: !currentFile.type.startsWith('image/') ? currentFile.name : undefined
+            };
+            setMessages(prev => [...prev, userMsg]);
+        };
+    } else {
+        setMessages(prev => [...prev, userMsg]);
+    }
+
+    setLoading(true);
     setInput('');
     setSelectedFile(null);
     
@@ -148,58 +281,104 @@ const GeminiTools: React.FC = () => {
         reader.readAsDataURL(currentFile);
         reader.onload = async () => {
           const base64 = reader.result as string;
+          const mimeType = currentFile.type;
+          const base64Data = base64.split(',')[1];
+          
           try {
             if (mode === 'generate_image' && currentFile.type.startsWith('image/')) {
                const res = await GeminiService.editImage(base64, currentInput || "Enhance image");
                setMessages(prev => [...prev, { role: 'model', type: 'image', content: res }]);
+               addXP(20);
+            } else if (mode === 'generate_video' && currentFile.type.startsWith('image/')) {
+               const res = await GeminiService.generateVideo(currentInput || "Animate this image", videoRatio, base64, currentFile.type);
+               const finalUrl = `${res}&key=${localStorage.getItem('custom_gemini_key') || process.env.API_KEY || GEMINI_API_KEY}`;
+               setMessages(prev => [...prev, { role: 'model', type: 'video', content: finalUrl }]);
+               addXP(30);
+            } else if (mode === 'analyze') {
+               const prompt = currentInput || (currentFile.type.startsWith('image/') ? "Describe this image." : "Summarize this document.");
+               const userParts = [
+                 { inlineData: { data: base64Data, mimeType } },
+                 { text: prompt }
+               ];
+               
+               const res = await GeminiService.getChatResponse([], userParts, GeminiModel.PRO_3);
+               setMessages(prev => [...prev, { 
+                 role: 'model', 
+                 type: 'text', 
+                 content: res.text,
+                 parts: [{ text: res.text }]
+               }]);
+               addXP(20);
             } else {
                const prompt = currentInput || (currentFile.type.startsWith('image/') ? "Describe this image." : "Summarize this document.");
                const res = await GeminiService.analyzeMedia(base64, currentFile.type, prompt);
                setMessages(prev => [...prev, { role: 'model', type: 'text', content: res }]);
+               addXP(20);
             }
           } catch (e: any) {
-             setMessages(prev => [...prev, { role: 'model', type: 'text', content: `⚠️ Error: ${e.message || "Failed to analyze file."}` }]);
+             setMessages(prev => [...prev, { role: 'model', type: 'text', content: `⚠️ Error: ${e.message || "Failed to process file."}` }]);
           }
           setLoading(false);
         };
         return;
       }
 
-      if (mode === 'chat') {
-        const history = messages.filter(m => m.type === 'text').map(m => ({ role: m.role, parts: [{ text: m.content }] }));
+      if (mode === 'chat' || mode === 'analyze') {
+        const history = messages
+          .filter(m => m.parts)
+          .map(m => ({ role: m.role, parts: m.parts }));
+          
         let responseText = '', grounding = undefined;
+
+        const model = mode === 'analyze' ? GeminiModel.PRO_3 : GeminiModel.FLASH_3;
 
         if (useThinking) {
              await checkApiKey();
-             const res = await GeminiService.getChatResponse(history, currentInput, GeminiModel.PRO_3, true, false);
+             const res = await GeminiService.getChatResponse(history, currentInput, GeminiModel.PRO_3, true, false, false);
              responseText = res.text || '';
         } else if (useSearch) {
              await checkApiKey();
-             const res = await GeminiService.getChatResponse(history, currentInput, GeminiModel.FLASH_3, false, true);
+             const res = await GeminiService.getChatResponse(history, currentInput, GeminiModel.FLASH_3, false, true, false);
+             responseText = res.text || '';
+             // @ts-ignore
+             if (res.grounding) grounding = res.grounding;
+        } else if (useMaps) {
+             await checkApiKey();
+             const res = await GeminiService.getChatResponse(history, currentInput, GeminiModel.FLASH_3, false, false, true);
              responseText = res.text || '';
              // @ts-ignore
              if (res.grounding) grounding = res.grounding;
         } else {
-             const res = await GeminiService.getChatResponse(history, currentInput, GeminiModel.FLASH_3);
+             const res = await GeminiService.getChatResponse(history, currentInput, model);
              responseText = res.text || '';
         }
-        setMessages(prev => [...prev, { role: 'model', type: 'text', content: responseText, grounding }]);
+        setMessages(prev => [...prev, { 
+          role: 'model', 
+          type: 'text', 
+          content: responseText, 
+          grounding,
+          parts: [{ text: responseText }]
+        }]);
+        addXP(10);
       }
       else if (mode === 'generate_image') {
         await checkApiKey();
-        const img = await GeminiService.generateImage(currentInput, imgSize, imgRatio);
+        const img = await GeminiService.generateImage(currentInput, imgSize, imgRatio, useProImage);
         setMessages(prev => [...prev, { role: 'model', type: 'image', content: img }]);
+        addXP(20);
       }
       else if (mode === 'generate_video') {
         await checkApiKey();
         const uri = await GeminiService.generateVideo(currentInput, videoRatio);
         const finalUrl = `${uri}&key=${localStorage.getItem('custom_gemini_key') || process.env.API_KEY || GEMINI_API_KEY}`;
         setMessages(prev => [...prev, { role: 'model', type: 'video', content: finalUrl }]);
+        addXP(30);
       }
       else if (mode === 'tts') {
          const audioBase64 = await GeminiService.generateSpeech(currentInput);
          setMessages(prev => [...prev, { role: 'model', type: 'audio', content: audioBase64 }]);
          playAudio(audioBase64);
+         addXP(15);
       }
     } catch (e: any) {
       console.error(e);
@@ -233,13 +412,14 @@ const GeminiTools: React.FC = () => {
               <div className="flex flex-col">
                   {msg.grounding.preview ? (
                       <img src={msg.grounding.preview} alt="Upload" className="max-w-[200px] rounded-lg mb-2" />
-                  ) : (
+                  ) : msg.grounding.fileName ? (
                       <div className="flex items-center gap-2 bg-gray-50 p-2 rounded-lg mb-2 w-fit">
                           <FileText size={20} className="text-gray-500"/>
                           <span className="text-xs font-bold text-gray-700">{msg.grounding.fileName}</span>
                       </div>
-                  )}
+                  ) : null}
                   <p>{msg.content}</p>
+                  <GroundingSources grounding={msg.grounding} />
               </div>
           )
       }
@@ -288,6 +468,10 @@ const GeminiTools: React.FC = () => {
                 </div>
              </div>
              <div className="ml-auto flex items-center gap-2">
+                 <button onClick={handleLiveToggle} className={`p-2 rounded-xl transition-colors flex items-center gap-2 text-sm font-bold ${isLiveActive ? 'bg-red-500 text-white animate-pulse shadow-lg shadow-red-300' : 'bg-white/20 hover:bg-white/30'}`} title="Live Voice Chat">
+                     <Phone size={18} />
+                     <span className="hidden sm:inline">{isLiveActive ? 'End Call' : 'Live Call'}</span>
+                 </button>
                  <button onClick={handleSelectKey} className="bg-white/20 p-2 rounded-xl hover:bg-white/30 transition-colors" title="Select API Key">
                      <Key size={18} />
                  </button>
@@ -314,7 +498,7 @@ const GeminiTools: React.FC = () => {
                     </div>
 
                     {/* Suggestion Grid */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-lg px-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-2xl px-4">
                         <button 
                             onClick={() => { setMode('chat'); handleSend("Explain Quantum Physics to a 5 year old."); }}
                             className="bg-white p-4 rounded-2xl shadow-sm hover:shadow-lg border border-orange-50 hover:border-orange-200 transition-all text-left group active:scale-95 flex items-center gap-3"
@@ -329,6 +513,45 @@ const GeminiTools: React.FC = () => {
                         </button>
 
                         <button 
+                            onClick={() => { setMode('analyze'); setMessages(prev => [...prev, { role: 'model', type: 'text', content: "Please upload a photo of your handwritten notes or a textbook page, and I will analyze it for you." }]); }}
+                            className="bg-white p-4 rounded-2xl shadow-sm hover:shadow-lg border border-orange-50 hover:border-orange-200 transition-all text-left group active:scale-95 flex items-center gap-3"
+                        >
+                            <div className="bg-emerald-100 w-10 h-10 rounded-full flex items-center justify-center text-emerald-600 group-hover:scale-110 transition-transform shrink-0">
+                                <PenTool size={18} />
+                            </div>
+                            <div>
+                                <span className="font-bold text-gray-700 text-sm block">Handwriting Analysis</span>
+                                <p className="text-[10px] text-gray-400">Analyze notes</p>
+                            </div>
+                        </button>
+
+                        <button 
+                            onClick={() => { setMode('chat'); handleSend("Generate a 5-question quiz about the Solar System with multiple choice answers."); }}
+                            className="bg-white p-4 rounded-2xl shadow-sm hover:shadow-lg border border-orange-50 hover:border-orange-200 transition-all text-left group active:scale-95 flex items-center gap-3"
+                        >
+                            <div className="bg-yellow-100 w-10 h-10 rounded-full flex items-center justify-center text-yellow-600 group-hover:scale-110 transition-transform shrink-0">
+                                <HelpCircle size={18} />
+                            </div>
+                            <div>
+                                <span className="font-bold text-gray-700 text-sm block">Quiz Generator</span>
+                                <p className="text-[10px] text-gray-400">Create a test</p>
+                            </div>
+                        </button>
+
+                        <button 
+                            onClick={() => { setMode('chat'); handleSend("Translate the following sentence into Hindi and Marathi: 'Education is the most powerful weapon which you can use to change the world.'"); }}
+                            className="bg-white p-4 rounded-2xl shadow-sm hover:shadow-lg border border-orange-50 hover:border-orange-200 transition-all text-left group active:scale-95 flex items-center gap-3"
+                        >
+                            <div className="bg-indigo-100 w-10 h-10 rounded-full flex items-center justify-center text-indigo-600 group-hover:scale-110 transition-transform shrink-0">
+                                <Languages size={18} />
+                            </div>
+                            <div>
+                                <span className="font-bold text-gray-700 text-sm block">Translator</span>
+                                <p className="text-[10px] text-gray-400">Local languages</p>
+                            </div>
+                        </button>
+
+                        <button 
                             onClick={() => { setMode('generate_image'); handleSend("A futuristic city with neon lights and flying cars, cyberpunk style, highly detailed"); }}
                             className="bg-white p-4 rounded-2xl shadow-sm hover:shadow-lg border border-orange-50 hover:border-orange-200 transition-all text-left group active:scale-95 flex items-center gap-3"
                         >
@@ -338,19 +561,6 @@ const GeminiTools: React.FC = () => {
                             <div>
                                 <span className="font-bold text-gray-700 text-sm block">Futuristic City</span>
                                 <p className="text-[10px] text-gray-400">Generate image</p>
-                            </div>
-                        </button>
-
-                        <button 
-                            onClick={() => { setMode('tts'); handleSend("Two roads diverged in a yellow wood, And sorry I could not travel both And be one traveler, long I stood..."); }}
-                            className="bg-white p-4 rounded-2xl shadow-sm hover:shadow-lg border border-orange-50 hover:border-orange-200 transition-all text-left group active:scale-95 flex items-center gap-3"
-                        >
-                            <div className="bg-green-100 w-10 h-10 rounded-full flex items-center justify-center text-green-600 group-hover:scale-110 transition-transform shrink-0">
-                                <Volume2 size={18} />
-                            </div>
-                            <div>
-                                <span className="font-bold text-gray-700 text-sm block">Poem to Speech</span>
-                                <p className="text-[10px] text-gray-400">Listen to audio</p>
                             </div>
                         </button>
 
@@ -427,9 +637,12 @@ const GeminiTools: React.FC = () => {
             )}
 
             {/* Context Bar */}
-            <div className="flex gap-2 mb-3 overflow-x-auto pb-1 no-scrollbar justify-center">
+            <div className="flex gap-2 mb-3 overflow-x-auto pb-1 no-scrollbar justify-center items-center">
                 <button onClick={() => setMode('chat')} className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 ${mode === 'chat' ? 'bg-orange-500 text-white shadow-md shadow-orange-200' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
                     <MessageSquare size={12} /> Chat
+                </button>
+                <button onClick={() => setMode('analyze')} className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 ${mode === 'analyze' ? 'bg-emerald-500 text-white shadow-md shadow-emerald-200' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
+                    <PenTool size={12} /> Analyze
                 </button>
                 <button onClick={() => setMode('generate_image')} className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 ${mode === 'generate_image' ? 'bg-purple-500 text-white shadow-md shadow-purple-200' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
                     <ImageIcon size={12} /> Visual
@@ -440,7 +653,64 @@ const GeminiTools: React.FC = () => {
                 <button onClick={() => setMode('generate_video')} className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 ${mode === 'generate_video' ? 'bg-red-500 text-white shadow-md shadow-red-200' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
                     <Video size={12} /> Video
                 </button>
+                <button onClick={() => setShowSettings(!showSettings)} className={`p-1.5 rounded-full transition-all ${showSettings ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
+                    <Settings2 size={14} />
+                </button>
             </div>
+
+            {/* Settings Panel */}
+            {showSettings && (
+              <div className="mb-3 p-3 bg-gray-50 rounded-xl border border-gray-100 text-xs flex flex-wrap gap-4 animate-in slide-in-from-top-2">
+                {mode === 'chat' && (
+                  <>
+                    <label className="flex items-center gap-1.5 cursor-pointer">
+                      <input type="checkbox" checked={useSearch} onChange={(e) => { setUseSearch(e.target.checked); if(e.target.checked) setUseMaps(false); }} className="rounded text-orange-500 focus:ring-orange-500" />
+                      <Search size={12} /> Google Search
+                    </label>
+                    <label className="flex items-center gap-1.5 cursor-pointer">
+                      <input type="checkbox" checked={useMaps} onChange={(e) => { setUseMaps(e.target.checked); if(e.target.checked) setUseSearch(false); }} className="rounded text-orange-500 focus:ring-orange-500" />
+                      <MapPin size={12} /> Google Maps
+                    </label>
+                    <label className="flex items-center gap-1.5 cursor-pointer">
+                      <input type="checkbox" checked={useThinking} onChange={(e) => setUseThinking(e.target.checked)} className="rounded text-orange-500 focus:ring-orange-500" />
+                      <Brain size={12} /> Deep Think (Pro)
+                    </label>
+                  </>
+                )}
+                {mode === 'generate_image' && (
+                  <>
+                    <label className="flex items-center gap-1.5 cursor-pointer">
+                      <input type="checkbox" checked={useProImage} onChange={(e) => setUseProImage(e.target.checked)} className="rounded text-purple-500 focus:ring-purple-500" />
+                      <Sparkles size={12} /> Pro Model
+                    </label>
+                    {useProImage && (
+                      <select value={imgSize} onChange={(e) => setImgSize(e.target.value)} className="bg-white border border-gray-200 rounded px-2 py-1">
+                        <option value="1K">1K</option>
+                        <option value="2K">2K</option>
+                        <option value="4K">4K</option>
+                      </select>
+                    )}
+                    <select value={imgRatio} onChange={(e) => setImgRatio(e.target.value)} className="bg-white border border-gray-200 rounded px-2 py-1">
+                      <option value="1:1">1:1</option>
+                      <option value="3:4">3:4</option>
+                      <option value="4:3">4:3</option>
+                      <option value="9:16">9:16</option>
+                      <option value="16:9">16:9</option>
+                      <option value="21:9">21:9</option>
+                    </select>
+                  </>
+                )}
+                {mode === 'generate_video' && (
+                  <>
+                    <select value={videoRatio} onChange={(e) => setVideoRatio(e.target.value as any)} className="bg-white border border-gray-200 rounded px-2 py-1">
+                      <option value="16:9">16:9 Landscape</option>
+                      <option value="9:16">9:16 Portrait</option>
+                    </select>
+                    <span className="text-gray-400 italic">Attach an image to animate it!</span>
+                  </>
+                )}
+              </div>
+            )}
 
             <div className="relative group z-20">
                 {/* Input Glow */}

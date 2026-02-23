@@ -1,4 +1,4 @@
-import { GoogleGenAI, Modality, Type } from "@google/genai";
+import { GoogleGenAI, Modality, Type, ThinkingLevel } from "@google/genai";
 import { GeminiModel } from '../types';
 import { GEMINI_API_KEY } from '../constants';
 
@@ -40,35 +40,55 @@ const withRetry = async <T>(fn: () => Promise<T>, retries = 3, baseDelay = 2000)
 // --- CHAT & TEXT ---
 
 export const getChatResponse = async (
-  history: { role: string; parts: { text: string }[] }[],
-  message: string,
+  history: any[],
+  message: string | any[],
   model: string = 'gemini-2.5-flash-lite-latest', 
   useThinking: boolean = false,
-  useSearch: boolean = false
+  useSearch: boolean = false,
+  useMaps: boolean = false
 ) => {
   return withRetry(async () => {
     const ai = getClient();
     
-    // Default to the most lightweight and stable model
     let selectedModel = model;
-    if (useThinking) selectedModel = 'gemini-3-pro-preview';
+    if (useThinking) selectedModel = 'gemini-3.1-pro-preview';
     else if (useSearch) selectedModel = 'gemini-3-flash-preview';
+    else if (useMaps) selectedModel = 'gemini-2.5-flash';
 
     const config: any = {
       systemInstruction: "You are a helpful, patient, and encouraging tutor for a rural student in India. Keep answers simple, use analogies, and be culturally relevant."
     };
 
     if (useThinking) {
-      config.thinkingConfig = { thinkingBudget: 1024 }; 
+      config.thinkingConfig = { thinkingLevel: ThinkingLevel.HIGH }; 
     }
 
     if (useSearch) {
       config.tools = [{ googleSearch: {} }];
     }
 
+    if (useMaps) {
+      config.tools = [{ googleMaps: {} }];
+      config.toolConfig = {
+        retrievalConfig: {
+          latLng: {
+            latitude: 20.5937,
+            longitude: 78.9629
+          }
+        }
+      };
+    }
+
+    const contents = [...history];
+    if (Array.isArray(message)) {
+        contents.push({ role: 'user', parts: message });
+    } else {
+        contents.push({ role: 'user', parts: [{ text: message }] });
+    }
+
     const response = await ai.models.generateContent({
       model: selectedModel,
-      contents: [...history, { role: 'user', parts: [{ text: message }] }] as any,
+      contents: contents as any,
       config,
     });
     
@@ -92,17 +112,25 @@ export const getFastDefinition = async (term: string) => {
 
 // --- IMAGES ---
 
-export const generateImage = async (prompt: string, size: string = '1K', aspectRatio: string = '1:1') => {
+export const generateImage = async (prompt: string, size: string = '1K', aspectRatio: string = '1:1', usePro: boolean = false) => {
   return withRetry(async () => {
     const ai = getClient();
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-image', // Fixed model name
-      contents: { parts: [{ text: prompt }] },
-      config: {
-        imageConfig: {
-          aspectRatio: aspectRatio as any
-        }
+    const model = usePro ? 'gemini-3-pro-image-preview' : 'gemini-2.5-flash-image';
+    
+    const config: any = {
+      imageConfig: {
+        aspectRatio: aspectRatio as any
       }
+    };
+
+    if (usePro) {
+      config.imageConfig.imageSize = size;
+    }
+
+    const response = await ai.models.generateContent({
+      model,
+      contents: { parts: [{ text: prompt }] },
+      config
     });
 
     for (const part of response.candidates?.[0]?.content?.parts || []) {
@@ -124,7 +152,7 @@ export const editImage = async (base64Image: string, prompt: string) => {
           {
             inlineData: {
               mimeType: 'image/jpeg',
-              data: base64Image.split(',')[1]
+              data: base64Image.includes(',') ? base64Image.split(',')[1] : base64Image
             }
           },
           { text: prompt }
@@ -145,8 +173,6 @@ export const analyzeMedia = async (base64Data: string, mimeType: string, prompt:
     return withRetry(async () => {
         const ai = getClient();
         const parts: any[] = [];
-        
-        // Ensure clean base64
         const cleanBase64 = base64Data.includes(',') ? base64Data.split(',')[1] : base64Data;
 
         parts.push({
@@ -158,7 +184,7 @@ export const analyzeMedia = async (base64Data: string, mimeType: string, prompt:
         parts.push({ text: prompt });
 
         const response = await ai.models.generateContent({
-          model: 'gemini-2.5-flash-latest', 
+          model: 'gemini-3.1-pro-preview', 
           contents: { parts }
         });
         return response.text;
@@ -201,7 +227,7 @@ export const transcribeAudio = async (base64Audio: string, mimeType: string = 'a
         const ai = getClient();
         const cleanBase64 = base64Audio.includes(',') ? base64Audio.split(',')[1] : base64Audio;
         const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash-latest',
+            model: 'gemini-3-flash-preview',
             contents: {
                 parts: [
                     {
@@ -220,19 +246,30 @@ export const transcribeAudio = async (base64Audio: string, mimeType: string = 'a
 
 // --- VIDEO ---
 
-export const generateVideo = async (prompt: string, ratio: '16:9' | '9:16') => {
+export const generateVideo = async (prompt: string, ratio: '16:9' | '9:16', base64Image?: string, mimeType?: string) => {
   const ai = getClient();
   
   let operation = await withRetry(async () => {
-      return await ai.models.generateVideos({
+      const config: any = {
+        numberOfVideos: 1,
+        resolution: '720p',
+        aspectRatio: ratio
+      };
+
+      const request: any = {
         model: 'veo-3.1-fast-generate-preview',
         prompt: prompt,
-        config: {
-          numberOfVideos: 1,
-          resolution: '720p',
-          aspectRatio: ratio
-        }
-      });
+        config
+      };
+
+      if (base64Image) {
+        request.image = {
+          imageBytes: base64Image.includes(',') ? base64Image.split(',')[1] : base64Image,
+          mimeType: mimeType || 'image/jpeg'
+        };
+      }
+
+      return await ai.models.generateVideos(request);
   });
 
   while (!operation.done) {
@@ -243,4 +280,32 @@ export const generateVideo = async (prompt: string, ratio: '16:9' | '9:16') => {
   const videoUri = operation.response?.generatedVideos?.[0]?.video?.uri;
   if (!videoUri) throw new Error("Video generation failed");
   return videoUri;
+};
+
+// --- LIVE API ---
+
+export const connectLiveSession = async (
+  onOpen: () => void,
+  onMessage: (message: any) => void,
+  onClose: () => void,
+  onError: (error: any) => void
+) => {
+  const ai = getClient();
+  const session = await ai.live.connect({
+    model: "gemini-2.5-flash-native-audio-preview-09-2025",
+    callbacks: {
+      onopen: onOpen,
+      onmessage: onMessage,
+      onclose: onClose,
+      onerror: onError,
+    },
+    config: {
+      responseModalities: [Modality.AUDIO],
+      speechConfig: {
+        voiceConfig: { prebuiltVoiceConfig: { voiceName: "Zephyr" } },
+      },
+      systemInstruction: "You are Mitra, a friendly AI tutor for students in rural India. You are having a real-time voice conversation. Keep your responses concise, helpful, and encouraging.",
+    },
+  });
+  return session;
 };

@@ -4,12 +4,14 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db';
 import { getSessionId } from '../services/authService';
 import { facts, Fact } from '../data/facts';
-import { X, Volume2, VolumeX, Sparkles, ThumbsUp, HelpCircle, Settings2, Check } from 'lucide-react';
+import { X, Volume2, VolumeX, Sparkles, ThumbsUp, HelpCircle, Settings2, Check, Loader2 } from 'lucide-react';
 import { useTranslation } from '../contexts/LanguageContext';
+import * as GeminiService from '../services/geminiService';
 
 const DailyGyanPopup: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [fact, setFact] = useState<Fact | null>(null);
+  const [loadingFact, setLoadingFact] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [interactionStep, setInteractionStep] = useState<'READING' | 'QUESTION' | 'CLOSING'>('READING');
@@ -27,8 +29,13 @@ const DailyGyanPopup: React.FC = () => {
   useEffect(() => {
     const loadVoices = () => {
       const v = window.speechSynthesis.getVoices();
+      // Filter duplicates by voiceURI to avoid React key warnings
+      const uniqueVoices = v.filter((voice, index, self) =>
+        index === self.findIndex((t) => t.voiceURI === voice.voiceURI)
+      );
+      
       // Sort Female voices to top
-      const sorted = v.sort((a, b) => {
+      const sorted = uniqueVoices.sort((a, b) => {
           const aFemale = /female|zira|samantha|google us english|google हिन्दी/i.test(a.name);
           const bFemale = /female|zira|samantha|google us english|google हिन्दी/i.test(b.name);
           if (aFemale && !bFemale) return -1;
@@ -70,15 +77,45 @@ const DailyGyanPopup: React.FC = () => {
       }
 
       const randomFact = availableFacts[Math.floor(Math.random() * availableFacts.length)];
-      setFact(randomFact);
+      
+      const fetchAiFact = async () => {
+          if (navigator.onLine) {
+              setLoadingFact(true);
+              try {
+                  const prompt = `Generate a single, fascinating educational fact for a student in Grade 10. 
+                  The fact should be about Science, History, or Technology. 
+                  Keep it under 30 words. 
+                  Format: Just the fact text.`;
+                  const res = await GeminiService.getChatResponse([], prompt);
+                  if (res.text) {
+                      const aiFact: Fact = {
+                          id: Date.now(),
+                          category: 'AI Discovery',
+                          text: res.text.trim(),
+                          image: `https://picsum.photos/seed/${Date.now()}/800/400`,
+                          gradeRange: 'Secondary'
+                      };
+                      setFact(aiFact);
+                      setIsOpen(true);
+                      handleSpeakFact(aiFact, user.name);
+                      return;
+                  }
+              } catch (e) {
+                  console.warn("Gemini Fact Fetch Failed", e);
+              } finally {
+                  setLoadingFact(false);
+              }
+          }
+          setFact(randomFact);
+          setIsOpen(true);
+          handleSpeakFact(randomFact, user.name);
+      };
 
       localStorage.setItem(historyKey, JSON.stringify([...seenIDs, randomFact.id]));
       sessionStorage.setItem(sessionKey, 'true');
       
       const timer = setTimeout(() => {
-        setIsOpen(true);
-        // Auto-play TTS if not muted
-        handleSpeakFact(randomFact, user.name);
+        fetchAiFact();
       }, 1000);
 
       return () => clearTimeout(timer);
@@ -187,7 +224,18 @@ const DailyGyanPopup: React.FC = () => {
     setIsOpen(false);
   };
 
-  if (!isOpen || !fact) return null;
+  if (!isOpen || (!fact && !loadingFact)) return null;
+
+  if (loadingFact) {
+      return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+              <div className="bg-white p-8 rounded-2xl shadow-2xl flex flex-col items-center gap-4">
+                  <Loader2 className="animate-spin text-blue-600" size={40} />
+                  <p className="font-bold text-gray-600">Summoning Daily Wisdom...</p>
+              </div>
+          </div>
+      );
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-300">

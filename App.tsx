@@ -35,20 +35,7 @@ const HomeView: React.FC = () => {
 
       <div className="flex flex-col lg:flex-row gap-8">
         <div className="flex-1 space-y-6">
-            {/* Search Bar */}
-            <div className="relative max-w-2xl">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Search className="text-gray-400" size={18} />
-                </div>
-                <input 
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search courses, subjects..."
-                className="w-full pl-10 pr-4 py-3 bg-white border border-gray-100 rounded-2xl shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm font-medium text-gray-700 placeholder-gray-400 transition-all"
-                />
-            </div>
-
+            
             {/* Stats Row */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-3 transition-transform hover:-translate-y-1">
@@ -114,49 +101,86 @@ const HomeView: React.FC = () => {
         </div>
 
         {/* Desktop Sidebar Area (Leaderboard) */}
-        {!searchQuery && (
-            <div className="w-full lg:w-80 shrink-0">
-                <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-gray-100 h-full sticky top-6">
-                    <div className="flex items-center justify-between mb-6">
-                        <h3 className="font-black text-gray-800 text-lg">Your Progress</h3>
-                        <Award className="text-orange-500" />
-                    </div>
-                    
-                    <div className="flex flex-col items-center text-center py-6 bg-gray-50 rounded-2xl border border-gray-100">
-                        <div className="w-24 h-24 bg-white shadow-sm rounded-full flex items-center justify-center text-5xl mb-4 relative">
-                            🦊
-                            <div className="absolute -bottom-2 bg-green-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full border-2 border-white">TOP 10%</div>
-                        </div>
-                        <p className="font-bold text-gray-800 text-xl">Rank: Explorer</p>
-                        <p className="text-xs text-gray-400 font-semibold mb-6 mt-1">Keep learning to level up!</p>
-                        
-                        <div className="w-full px-6">
-                            <div className="flex justify-between text-[10px] font-bold text-gray-400 mb-1">
-                                <span>Level 1</span>
-                                <span>Level 2</span>
-                            </div>
-                            <div className="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
-                                <div className="bg-gradient-to-r from-green-400 to-green-600 h-full rounded-full w-[70%]"></div>
-                            </div>
-                            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mt-2">700 XP to next rank</p>
-                        </div>
-                    </div>
-                    
-                    <button className="w-full mt-4 bg-gray-900 text-white text-sm font-bold px-4 py-3.5 rounded-xl hover:bg-gray-800 transition-colors shadow-lg shadow-gray-200">
-                        View Full Leaderboard
-                    </button>
+        <div className="w-full lg:w-80 shrink-0">
+            <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-gray-100 h-full sticky top-6">
+                <div className="flex items-center justify-between mb-6">
+                    <h3 className="font-black text-gray-800 text-lg">Your Progress</h3>
+                    <Award className="text-orange-500" />
                 </div>
+                
+                <div className="flex flex-col items-center text-center py-6 bg-gray-50 rounded-2xl border border-gray-100">
+                    <div className="w-24 h-24 bg-white shadow-sm rounded-full flex items-center justify-center text-5xl mb-4 relative">
+                        🦊
+                        <div className="absolute -bottom-2 bg-green-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full border-2 border-white">TOP 10%</div>
+                    </div>
+                    <p className="font-bold text-gray-800 text-xl">Rank: Explorer</p>
+                    <p className="text-xs text-gray-400 font-semibold mb-6 mt-1">Keep learning to level up!</p>
+                    
+                    <div className="w-full px-6">
+                        <div className="flex justify-between text-[10px] font-bold text-gray-400 mb-1">
+                            <span>Level 1</span>
+                            <span>Level 2</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
+                            <div className="bg-gradient-to-r from-green-400 to-green-600 h-full rounded-full w-[70%]"></div>
+                        </div>
+                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mt-2">700 XP to next rank</p>
+                    </div>
+                </div>
+                
+                <button className="w-full mt-4 bg-gray-900 text-white text-sm font-bold px-4 py-3.5 rounded-xl hover:bg-gray-800 transition-colors shadow-lg shadow-gray-200">
+                    View Full Leaderboard
+                </button>
             </div>
-        )}
+        </div>
       </div>
 
-      {/* Explore Worlds */}
-      <div>
-        <h3 className="font-black text-gray-800 text-xl mb-6 flex items-center gap-2">
-            {searchQuery ? `Search Results (${filteredCourses?.length})` : 'Explore Worlds'}
-        </h3>
-        
-        {filteredCourses && filteredCourses.length === 0 ? (
+            {/* Explore Worlds */}
+            <div className="space-y-6">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                    <h3 className="font-black text-gray-800 text-xl flex items-center gap-2">
+                        {searchQuery ? `Search Results (${filteredCourses?.length})` : 'Explore Worlds'}
+                    </h3>
+                    
+                    {/* Search Bar */}
+                    <div className="relative w-full md:max-w-md">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <Search className="text-gray-400" size={18} />
+                        </div>
+                        <input 
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Search courses or subjects..."
+                        className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-100 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm font-medium text-gray-700 placeholder-gray-400 transition-all"
+                        />
+                    </div>
+                </div>
+
+                {/* Recommended Path (Personalized) */}
+                {!searchQuery && (
+                    <div className="bg-gradient-to-r from-emerald-50 to-teal-50 p-6 rounded-[2rem] border border-emerald-100 relative overflow-hidden">
+                        <div className="relative z-10">
+                            <h4 className="font-black text-emerald-800 text-lg mb-2 flex items-center gap-2">
+                                <BrainCircuit size={20} /> Recommended Path
+                            </h4>
+                            <p className="text-emerald-600 text-sm font-medium mb-4 max-w-lg">
+                                Based on your interest in Science, we've curated a special learning path for you.
+                            </p>
+                            <button 
+                                onClick={() => navigate('/course/1')} 
+                                className="bg-emerald-600 text-white px-6 py-2.5 rounded-xl font-bold text-xs shadow-lg shadow-emerald-200 hover:bg-emerald-700 transition-colors"
+                            >
+                                Continue Science Journey
+                            </button>
+                        </div>
+                        <div className="absolute right-0 top-0 opacity-10">
+                            <BrainCircuit size={150} className="text-emerald-500 transform translate-x-10 -translate-y-10" />
+                        </div>
+                    </div>
+                )}
+                
+                {filteredCourses && filteredCourses.length === 0 ? (
             <div className="text-center py-16 bg-white rounded-[2rem] border-2 border-dashed border-gray-100">
                 <div className="bg-gray-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3 text-gray-300">
                     <Search size={24} />
@@ -452,6 +476,9 @@ const ModuleView: React.FC = () => {
   );
 };
 
+import VoiceControl from './components/VoiceControl';
+import AnalyticsView from './components/AnalyticsView';
+
 // --- MAIN APP COMPONENT ---
 
 const App: React.FC = () => {
@@ -498,6 +525,7 @@ const App: React.FC = () => {
   return (
     <HashRouter>
     <Layout>
+        <VoiceControl />
         <Routes>
         <Route path="/" element={<HomeView />} />
         <Route path="/courses" element={<HomeView />} />
@@ -505,6 +533,7 @@ const App: React.FC = () => {
         <Route path="/module/:id" element={<ModuleView />} />
         <Route path="/ai-tools" element={<GeminiTools />} />
         <Route path="/profile" element={<ProfileView onLogout={handleLogout} />} />
+        <Route path="/analytics" element={<AnalyticsView />} />
         </Routes>
     </Layout>
     </HashRouter>

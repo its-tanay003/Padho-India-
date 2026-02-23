@@ -4,7 +4,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db, updateUser } from '../db';
 import { getSessionId } from '../services/authService';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, MapPin, Mail, Phone, Trophy, Settings, Camera, Upload, X, Check } from 'lucide-react';
+import { ChevronLeft, MapPin, Mail, Phone, Trophy, Settings, Camera, Upload, X, Check, TrendingUp } from 'lucide-react';
 import SettingsMenu from './SettingsMenu';
 
 interface Props {
@@ -174,12 +174,21 @@ const ProfileView: React.FC<Props> = ({ onLogout }) => {
            </div>
 
            {/* Big CTA Button */}
-           <button 
-             onClick={() => setShowSettings(true)}
-             className="w-full max-w-md bg-gray-900 text-white font-bold py-4 rounded-2xl mt-8 shadow-xl shadow-gray-200 active:scale-95 transition-all flex items-center justify-center gap-2 hover:bg-black"
-           >
-             <Settings size={18} /> Settings & Logout
-           </button>
+           <div className="w-full max-w-md mt-8 space-y-3">
+               <button 
+                 onClick={() => navigate('/analytics')}
+                 className="w-full bg-blue-600 text-white font-bold py-4 rounded-2xl shadow-xl shadow-blue-200 active:scale-95 transition-all flex items-center justify-center gap-2 hover:bg-blue-700"
+               >
+                 <TrendingUp size={18} /> View Learning Analytics
+               </button>
+               
+               <button 
+                 onClick={() => setShowSettings(true)}
+                 className="w-full bg-gray-900 text-white font-bold py-4 rounded-2xl shadow-xl shadow-gray-200 active:scale-95 transition-all flex items-center justify-center gap-2 hover:bg-black"
+               >
+                 <Settings size={18} /> Settings & Logout
+               </button>
+           </div>
 
        </div>
 

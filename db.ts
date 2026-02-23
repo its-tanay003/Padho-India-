@@ -267,7 +267,11 @@ export const seedDatabase = async () => {
               videoUrl: 'sim_vedic_1.mp4',
               type: 'video',
               isCompleted: false,
-              content: 'Square numbers ending in 5 instantly.'
+              content: 'Square numbers ending in 5 instantly.',
+              captions: [
+                { language: 'en', label: 'English', src: 'data:text/vtt;base64,V0VCVlRUCgowMDowMC4wMDAgLS0+IDAwOjA1LjAwMApUaGlzIGlzIGEgc2FtcGxlIEVuZ2xpc2ggY2FwdGlvbi4KCjAwOjA1LjAwMCAtLT4gMDA6MTAuMDAwCkl0IHNob3dzIGhvdyBjYXB0aW9ucyB3b3JrLg==' },
+                { language: 'hi', label: 'Hindi', src: 'data:text/vtt;base64,V0VCVlRUCgowMDowMC4wMDAgLS0+IDAwOjA1LjAwMAp5YWggZWsgbmFtdW5hIGhpbmRpIGNhcHRpb24gaGFpLgoKMDA6MDUuMDAwIC0tPiAwMDoxMC4wMDAKeWFoIGRpa2hhdGEgaGFpIGtpIGNhcHRpb25zIGthaXNlIGthYW0ga2FydGUgaGFpbi4=' }
+              ]
             },
             {
               title: 'Math Quiz',
